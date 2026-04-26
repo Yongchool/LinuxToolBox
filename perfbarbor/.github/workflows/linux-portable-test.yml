@@ -36,7 +36,7 @@ jobs:
             coreutils
 
       - name: Make scripts executable
-        run: chmod +x scripts/*.sh
+        run: chmod +x /perfbarbor/scripts/*.sh
 
       - name: Syntax check
         run: |
