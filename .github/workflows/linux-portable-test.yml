@@ -110,7 +110,7 @@ jobs:
             image: registry.suse.com/bci/bci-base:15.6
             install: |
               zypper --non-interactive refresh
-              zypper --non-interactive install bash procps sysstat iproute2 ethtool util-linux gawk grep sed coreutils
+              zypper --non-interactive install bash hostname procps sysstat iproute2 ethtool util-linux gawk grep sed coreutils
           # SLES 12.x는 공개 컨테이너 가용성/라이선스 조건을 별도 확인하는 편이 안전
           # 필요 시 self-hosted runner 또는 별도 registry 인증 이미지로 확장
 
