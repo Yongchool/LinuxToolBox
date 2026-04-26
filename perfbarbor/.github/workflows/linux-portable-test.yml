@@ -1,0 +1,157 @@
+name: Linux Portable Script Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # 1) GitHub-hosted Ubuntu 직접 테스트
+  ubuntu-native:
+    name: Ubuntu native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bash \
+            procps \
+            sysstat \
+            iproute2 \
+            ethtool \
+            util-linux \
+            gawk \
+            grep \
+            sed \
+            coreutils
+
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh
+
+      - name: Syntax check
+        run: |
+          bash -n scripts/iostat_linux_portable.sh
+          bash -n scripts/netstat_linux_portable.sh
+          bash -n scripts/tprof_linux_portable.sh
+
+      - name: Run iostat collector
+        run: |
+          mkdir -p out/ubuntu
+          ./scripts/iostat_linux_portable.sh -o out/ubuntu 60
+
+      - name: Run netstat collector
+        run: |
+          ./scripts/netstat_linux_portable.sh -o out/ubuntu 60
+
+      - name: Run tprof collector
+        run: |
+          ./scripts/tprof_linux_portable.sh -o out/ubuntu 20
+
+      - name: Validate output files
+        run: |
+          test -f out/ubuntu/iostat.int
+          test -f out/ubuntu/iostat.sum
+          test -f out/ubuntu/netstat.int
+          test -f out/ubuntu/netstat.sum
+          test -f out/ubuntu/tprof.sum
+
+      - name: Upload Ubuntu artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-${{ matrix.os }}-artifacts
+          path: out/ubuntu/
+
+  # 2) Container matrix: Debian / Oracle / SUSE
+  linux-container-matrix:
+    name: Container test (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: debian-11
+            image: debian:11
+            install: |
+              apt-get update
+              apt-get install -y bash procps sysstat iproute2 ethtool util-linux gawk grep sed coreutils
+          - name: debian-12
+            image: debian:12
+            install: |
+              apt-get update
+              apt-get install -y bash procps sysstat iproute2 ethtool util-linux gawk grep sed coreutils
+          - name: oraclelinux-8
+            image: oraclelinux:8
+            install: |
+              dnf install -y bash procps-ng sysstat iproute ethtool util-linux gawk grep sed coreutils findutils
+          - name: oraclelinux-9
+            image: oraclelinux:9
+            install: |
+              dnf install -y bash procps-ng sysstat iproute ethtool util-linux gawk grep sed coreutils findutils
+          - name: suse-15
+            image: registry.suse.com/bci/bci-base:15.6
+            install: |
+              zypper --non-interactive refresh
+              zypper --non-interactive install bash procps sysstat iproute2 ethtool util-linux gawk grep sed coreutils
+          # SLES 12.x는 공개 컨테이너 가용성/라이선스 조건을 별도 확인하는 편이 안전
+          # 필요 시 self-hosted runner 또는 별도 registry 인증 이미지로 확장
+
+    container:
+      image: ${{ matrix.image }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies in container
+        run: |
+          ${{ matrix.install }}
+
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh
+
+      - name: Syntax check
+        run: |
+          bash -n scripts/iostat_linux_portable.sh
+          bash -n scripts/netstat_linux_portable.sh
+          bash -n scripts/tprof_linux_portable.sh
+
+      - name: Run iostat collector
+        run: |
+          mkdir -p out/${{ matrix.name }}
+          ./scripts/iostat_linux_portable.sh -o out/${{ matrix.name }} 60
+
+      - name: Run netstat collector
+        run: |
+          ./scripts/netstat_linux_portable.sh -o out/${{ matrix.name }} 60
+
+      - name: Run tprof collector
+        run: |
+          ./scripts/tprof_linux_portable.sh -o out/${{ matrix.name }} 20
+
+      - name: Validate output files
+        run: |
+          test -f out/${{ matrix.name }}/iostat.int
+          test -f out/${{ matrix.name }}/iostat.sum
+          test -f out/${{ matrix.name }}/netstat.int
+          test -f out/${{ matrix.name }}/netstat.sum
+          test -f out/${{ matrix.name }}/tprof.sum
+
+      - name: Upload container artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-artifacts
+          path: out/${{ matrix.name }}/
