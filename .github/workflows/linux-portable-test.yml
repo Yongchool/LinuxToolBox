@@ -54,6 +54,10 @@ jobs:
           mkdir -p out/ubuntu
           ./scripts/iostat_linux_portable.sh -o out/ubuntu 60
 
+      - name: Show netstat script
+        run: |
+          nl -ba scripts/netstat_linux_portable.sh | sed -n '1,260p'
+
       - name: Run netstat collector
         run: |
           ./scripts/netstat_linux_portable.sh -o out/ubuntu 60
