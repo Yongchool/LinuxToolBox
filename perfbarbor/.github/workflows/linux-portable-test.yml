@@ -40,22 +40,22 @@ jobs:
 
       - name: Syntax check
         run: |
-          bash -n scripts/iostat_linux_portable.sh
-          bash -n scripts/netstat_linux_portable.sh
-          bash -n scripts/tprof_linux_portable.sh
+          bash -n /perfbarbor/scripts/iostat_linux_portable.sh
+          bash -n /perfbarbor/scripts/netstat_linux_portable.sh
+          bash -n /perfbarbor/scripts/tprof_linux_portable.sh
 
       - name: Run iostat collector
         run: |
           mkdir -p out/ubuntu
-          ./scripts/iostat_linux_portable.sh -o out/ubuntu 60
+          /perfbarbor/scripts/iostat_linux_portable.sh -o out/ubuntu 60
 
       - name: Run netstat collector
         run: |
-          ./scripts/netstat_linux_portable.sh -o out/ubuntu 60
+          /perfbarbor/scripts/netstat_linux_portable.sh -o out/ubuntu 60
 
       - name: Run tprof collector
         run: |
-          ./scripts/tprof_linux_portable.sh -o out/ubuntu 20
+          /perfbarbor/scripts/tprof_linux_portable.sh -o out/ubuntu 20
 
       - name: Validate output files
         run: |
@@ -121,26 +121,26 @@ jobs:
           ${{ matrix.install }}
 
       - name: Make scripts executable
-        run: chmod +x scripts/*.sh
+        run: chmod +x /perfbarbor/scripts/*.sh
 
       - name: Syntax check
         run: |
-          bash -n scripts/iostat_linux_portable.sh
-          bash -n scripts/netstat_linux_portable.sh
-          bash -n scripts/tprof_linux_portable.sh
+          bash -n /perfbarbor/scripts/iostat_linux_portable.sh
+          bash -n /perfbarbor/scripts/netstat_linux_portable.sh
+          bash -n /perfbarbor/scripts/tprof_linux_portable.sh
 
       - name: Run iostat collector
         run: |
           mkdir -p out/${{ matrix.name }}
-          ./scripts/iostat_linux_portable.sh -o out/${{ matrix.name }} 60
+          /perfbarbor/scripts/iostat_linux_portable.sh -o out/${{ matrix.name }} 60
 
       - name: Run netstat collector
         run: |
-          ./scripts/netstat_linux_portable.sh -o out/${{ matrix.name }} 60
+          /perfbarbor/scripts/netstat_linux_portable.sh -o out/${{ matrix.name }} 60
 
       - name: Run tprof collector
         run: |
-          ./scripts/tprof_linux_portable.sh -o out/${{ matrix.name }} 20
+          /perfbarbor/scripts/tprof_linux_portable.sh -o out/${{ matrix.name }} 20
 
       - name: Validate output files
         run: |
