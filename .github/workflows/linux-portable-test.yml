@@ -101,11 +101,11 @@ jobs:
           - name: oraclelinux-8
             image: oraclelinux:8
             install: |
-              dnf install -y bash procps-ng sysstat iproute ethtool util-linux gawk grep sed coreutils findutils
+                  dnf install -y bash hostname procps-ng sysstat iproute ethtool util-linux gawk grep sed coreutils findutils
           - name: oraclelinux-9
             image: oraclelinux:9
             install: |
-              dnf install -y bash procps-ng sysstat iproute ethtool util-linux gawk grep sed coreutils findutils
+              dnf install -y bash hostname procps-ng sysstat iproute ethtool util-linux gawk grep sed coreutils findutils
           - name: suse-15
             image: registry.suse.com/bci/bci-base:15.6
             install: |
