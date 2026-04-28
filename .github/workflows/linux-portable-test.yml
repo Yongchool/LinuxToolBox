@@ -91,11 +91,11 @@ jobs:
           - name: rhel-8
             image: registry.access.redhat.com/ubi8/ubi:latest
             install: |
-              dnf install -y bash hostname procps-ng sysstat iproute ethtool util-linux gawk grep sed coreutils findutils
+              dnf install -y bash hostname procps-ng iproute ethtool util-linux gawk grep sed coreutils findutils
           - name: rhel-9
             image: registry.access.redhat.com/ubi9/ubi:latest
             install: |
-              dnf install -y bash hostname procps-ng sysstat iproute ethtool util-linux gawk grep sed coreutils findutils
+              dnf install -y bash hostname procps-ng iproute ethtool util-linux gawk grep sed coreutils findutils
           - name: debian-11
             image: debian:11
             install: |
