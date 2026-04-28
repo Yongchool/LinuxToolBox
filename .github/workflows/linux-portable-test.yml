@@ -47,7 +47,8 @@ jobs:
         run: |
           bash -n scripts/iostat_linux_portable.sh
           bash -n scripts/netstat_linux_portable.sh
-          bash -n scripts/tprof_linux_portable.sh
+          bash -n scripts/tprof_linux_portable.sh          
+          bash -n scripts/vmstat_linux_portable.sh
 
       - name: Run iostat collector
         run: |
@@ -66,13 +67,19 @@ jobs:
         run: |
           ./scripts/tprof_linux_portable.sh -o out/ubuntu 20
 
+      - name: Run vmstat collector
+        run: |
+          ./scripts/vmstat_linux_portable.sh -o out/ubuntu 60
+
       - name: Validate output files
         run: |
           test -f out/ubuntu/iostat.int
           test -f out/ubuntu/iostat.sum
           test -f out/ubuntu/netstat.int
           test -f out/ubuntu/netstat.sum
-          test -f out/ubuntu/tprof.sum
+          test -f out/ubuntu/tprof.sum          
+          test -f out/ubuntu/vmstat.int
+          test -f out/ubuntu/vmstat.sum
 
       - name: Upload Ubuntu artifacts
         uses: actions/upload-artifact@v4
@@ -144,7 +151,8 @@ jobs:
         run: |
           bash -n scripts/iostat_linux_portable.sh
           bash -n scripts/netstat_linux_portable.sh
-          bash -n scripts/tprof_linux_portable.sh
+          bash -n scripts/tprof_linux_portable.sh          
+          bash -n scripts/vmstat_linux_portable.sh
 
       - name: Run iostat collector
         run: |
@@ -159,8 +167,14 @@ jobs:
         run: |
           ./scripts/tprof_linux_portable.sh -o out/${{ matrix.name }} 20
 
-      - name: Validate output files
+      - name: Run vmstat collector
         run: |
+          ./scripts/vmstat_linux_portable.sh -o out/${{ matrix.name }} 60
+
+      - name: Validate output files
+        run: |        
+          test -f out/${{ matrix.name }}/vmstat.int
+          test -f out/${{ matrix.name }}/vmstat.sum
           test -f out/${{ matrix.name }}/iostat.int
           test -f out/${{ matrix.name }}/iostat.sum
           test -f out/${{ matrix.name }}/netstat.int
