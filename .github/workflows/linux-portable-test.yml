@@ -106,6 +106,11 @@ jobs:
             image: oraclelinux:9
             install: |
               dnf install -y bash hostname procps-ng sysstat iproute ethtool util-linux gawk grep sed coreutils findutils
+          - name: sles-12-sp5
+            image: registry.suse.com/suse/ltss/sle12.5/sles12sp5:latest
+            install: |
+              zypper --non-interactive refresh
+              zypper --non-interactive install bash hostname procps sysstat iproute2 ethtool util-linux gawk grep sed coreutils findutils
           - name: suse-15
             image: registry.suse.com/bci/bci-base:15.6
             install: |
