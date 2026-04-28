@@ -91,11 +91,11 @@ jobs:
           - name: rockylinux-8
             image: rockylinux:8
             install: |
-              dnf install -y bash hostname procps-ng sysstat iproute ethtool util-linux gawk grep sed coreutils findutils
+              dnf install -y bash hostname procps-ng sysstat iproute ethtool util-linux gawk grep sed findutils
           - name: rockylinux-9
             image: rockylinux:9
             install: |
-              dnf install -y bash hostname procps-ng sysstat iproute ethtool util-linux gawk grep sed coreutils findutils
+              dnf install -y bash hostname procps-ng sysstat iproute ethtool util-linux gawk grep sed findutils
           - name: debian-11
             image: debian:11
             install: |
