@@ -110,3 +110,4 @@ mv "$tmp_file" "$out_file" || {
 
 rm -f "$idx_file"
 exit 0
+`
