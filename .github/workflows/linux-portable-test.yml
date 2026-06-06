@@ -49,6 +49,7 @@ jobs:
           bash -n scripts/netstat_linux_portable.sh
           bash -n scripts/tprof_linux_portable.sh          
           bash -n scripts/vmstat_linux_portable.sh
+          bash -n scripts/memmap_linux.sh
 
       - name: Run iostat collector
         run: |
@@ -70,6 +71,10 @@ jobs:
       - name: Run vmstat collector
         run: |
           ./scripts/vmstat_linux_portable.sh -o out/ubuntu 60
+          
+      - name: Run memmap collector
+        run: |
+          ./scripts/memmap_linux.sh.sh out/ubuntu/memmap.out
 
       - name: Validate output files
         run: |
@@ -80,6 +85,7 @@ jobs:
           test -f out/ubuntu/tprof.sum          
           test -f out/ubuntu/vmstat.int
           test -f out/ubuntu/vmstat.sum
+          test -f out/ubuntu/memmap.out
 
       - name: Upload Ubuntu artifacts
         uses: actions/upload-artifact@v4
@@ -153,6 +159,7 @@ jobs:
           bash -n scripts/netstat_linux_portable.sh
           bash -n scripts/tprof_linux_portable.sh          
           bash -n scripts/vmstat_linux_portable.sh
+          bash -n scripts/memmap_linux.sh
 
       - name: Run iostat collector
         run: |
@@ -170,6 +177,10 @@ jobs:
       - name: Run vmstat collector
         run: |
           ./scripts/vmstat_linux_portable.sh -o out/${{ matrix.name }} 60
+                
+      - name: Run memmap collector
+        run: |
+          ./scripts/memmap_linux.sh.sh out/${{ matrix.name }}/memmap.out
 
       - name: Validate output files
         run: |        
@@ -179,6 +190,7 @@ jobs:
           test -f out/${{ matrix.name }}/iostat.sum
           test -f out/${{ matrix.name }}/netstat.int
           test -f out/${{ matrix.name }}/netstat.sum
+          test -f out/${{ matrix.name }}/memmap.out
           test -f out/${{ matrix.name }}/tprof.sum
 
       - name: Upload container artifacts
