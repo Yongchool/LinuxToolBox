@@ -43,6 +43,11 @@ jobs:
       - name: Make scripts executable
         run: chmod +x scripts/*.sh
 
+      - name: Debug memmap script
+        run: |
+             file scripts/memmap_linux.sh
+             sed -n '1,40p' scripts/memmap_linux.sh | cat -v
+
       - name: Syntax check
         run: |
           bash -n scripts/iostat_linux_portable.sh
