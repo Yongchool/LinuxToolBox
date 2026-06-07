@@ -71,9 +71,17 @@ jobs:
       #- name: Run vmstat collector
       #  run: |
       #    ./scripts/vmstat_linux_portable.sh -o out/ubuntu 60
-          
+
+      - name: Debug firmware paths
+        run: |
+          ls -ld /sys || true
+          ls -ld /sys/firmware || true
+          ls -ld /sys/firmware/efi || true
+          ls -ld /sys/firmware/memmap || true
+    
       - name: Run firmware_memmap collector
         run: |
+          mkdir -p out/ubuntu
           ./scripts/collect_firmware_memmap_portable.sh out/ubuntu/firmware_memmap.out
 
       - name: Validate output files
@@ -177,9 +185,17 @@ jobs:
       #- name: Run vmstat collector
       #  run: |
       #    ./scripts/vmstat_linux_portable.sh -o out/${{ matrix.name }} 60
+      
+      - name: Debug firmware paths
+        run: |
+          ls -ld /sys || true
+          ls -ld /sys/firmware || true
+          ls -ld /sys/firmware/efi || true
+          ls -ld /sys/firmware/memmap || true
           
       - name: Run firmware_memmap collector
         run: |
+          mkdir -p out/${{ matrix.name }}
           ./scripts/collect_firmware_memmap_portable.sh out/${{ matrix.name }}/firmware_memmap.out
 
       - name: Validate output files
