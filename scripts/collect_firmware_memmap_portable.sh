@@ -133,6 +133,8 @@ trap cleanup EXIT HUP INT TERM
 # Build numeric index list at collection time.
 # This avoids shell glob order such as 0, 1, 10, 11, 2, 3...
 found_any=0
+idx_count=0
+: > "$idx_file"
 
 echo "DEBUG: listing entries under $memmap_dir" >&2
 ls -la "$memmap_dir" >&2 || true
@@ -156,11 +158,21 @@ for entry in "$memmap_dir"/*; do
     esac
 
     echo "DEBUG: accepted index = [$index]" >&2
-    printf '%s\n' "$index"
-done | sort -n > "$idx_file"
+    printf '%s\n' "$index" >> "$idx_file"
+    idx_count=$((idx_count + 1))
+done
 
+sort -n "$idx_file" -o "$idx_file"
+
+echo "DEBUG: idx_count = [$idx_count]" >&2
 echo "DEBUG: idx_file content:" >&2
 cat "$idx_file" >&2 || true
+
+if [ "$idx_count" -eq 0 ]; then
+    rm -f "$tmp_file" "$idx_file"
+    echo "ERROR: no numeric entries found under $memmap_dir" >&2
+    exit 1
+fi
 
 if [ "$found_any" -eq 0 ] || [ ! -s "$idx_file" ]; then
     error_exit "no numeric entries found under $memmap_dir"
