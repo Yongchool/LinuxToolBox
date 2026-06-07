@@ -51,26 +51,26 @@ jobs:
           bash -n scripts/vmstat_linux_portable.sh
           bash -n scripts/collect_firmware_memmap_portable.sh
 
-      - name: Run iostat collector
-        run: |
-          mkdir -p out/ubuntu
-          ./scripts/iostat_linux_portable.sh -o out/ubuntu 5
+      #- name: Run iostat collector
+      #  run: |
+      #    mkdir -p out/ubuntu
+      #    ./scripts/iostat_linux_portable.sh -o out/ubuntu 60
 
-      - name: Show netstat script
-        run: |
-          nl -ba scripts/netstat_linux_portable.sh | sed -n '1,260p'
+      #- name: Show netstat script
+      #  run: |
+      #    nl -ba scripts/netstat_linux_portable.sh | sed -n '1,260p'
 
-      - name: Run netstat collector
-        run: |
-          ./scripts/netstat_linux_portable.sh -o out/ubuntu 5
+      #- name: Run netstat collector
+      #  run: |
+      #    ./scripts/netstat_linux_portable.sh -o out/ubuntu 60
 
-      - name: Run tprof collector
-        run: |
-          ./scripts/tprof_linux_portable.sh -o out/ubuntu 5
+      #- name: Run tprof collector
+      #  run: |
+      #    ./scripts/tprof_linux_portable.sh -o out/ubuntu 20
 
-      - name: Run vmstat collector
-        run: |
-          ./scripts/vmstat_linux_portable.sh -o out/ubuntu 5
+      #- name: Run vmstat collector
+      #  run: |
+      #    ./scripts/vmstat_linux_portable.sh -o out/ubuntu 60
           
       - name: Run firmware_memmap collector
         run: |
@@ -161,22 +161,22 @@ jobs:
           bash -n scripts/vmstat_linux_portable.sh
           bash -n scripts/collect_firmware_memmap_portable.sh
 
-      - name: Run iostat collector
-        run: |
-          mkdir -p out/${{ matrix.name }}
-          ./scripts/iostat_linux_portable.sh -o out/${{ matrix.name }} 5
+      #- name: Run iostat collector
+      #  run: |
+      #    mkdir -p out/${{ matrix.name }}
+      #    ./scripts/iostat_linux_portable.sh -o out/${{ matrix.name }} 60
 
-      - name: Run netstat collector
-        run: |
-          ./scripts/netstat_linux_portable.sh -o out/${{ matrix.name }} 5
+      #- name: Run netstat collector
+      #  run: |
+      #    ./scripts/netstat_linux_portable.sh -o out/${{ matrix.name }} 60
 
-      - name: Run tprof collector
-        run: |
-          ./scripts/tprof_linux_portable.sh -o out/${{ matrix.name }} 5
+      #- name: Run tprof collector
+      #  run: |
+      #    ./scripts/tprof_linux_portable.sh -o out/${{ matrix.name }} 20
 
-      - name: Run vmstat collector
-        run: |
-          ./scripts/vmstat_linux_portable.sh -o out/${{ matrix.name }} 5
+      #- name: Run vmstat collector
+      #  run: |
+      #    ./scripts/vmstat_linux_portable.sh -o out/${{ matrix.name }} 60
           
       - name: Run firmware_memmap collector
         run: |
