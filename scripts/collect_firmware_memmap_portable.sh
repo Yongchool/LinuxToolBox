@@ -94,9 +94,14 @@ fi
 out_file=$1
 memmap_dir=/sys/firmware/memmap
 
+print_ls_debug /sys/firmware
+print_ls_debug /sys/firmware/efi
+print_ls_debug /sys/firmware/memmap
+
 if [ ! -d "$memmap_dir" ]; then
     error_exit "$memmap_dir does not exist"
 fi
+
 
 out_dir=$(safe_dirname "$out_file")
 
