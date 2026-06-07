@@ -168,11 +168,6 @@ echo "DEBUG: idx_count = [$idx_count]" >&2
 echo "DEBUG: idx_file content:" >&2
 cat "$idx_file" >&2 || true
 
-if [ "$idx_count" -eq 0 ]; then
-    rm -f "$tmp_file" "$idx_file"
-    echo "ERROR: no numeric entries found under $memmap_dir" >&2
-    exit 1
-fi
 
 if [ "$found_any" -eq 0 ] || [ ! -s "$idx_file" ]; then
     error_exit "no numeric entries found under $memmap_dir"
