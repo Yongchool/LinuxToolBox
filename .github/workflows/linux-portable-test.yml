@@ -54,7 +54,7 @@ jobs:
       - name: Run iostat collector
         run: |
           mkdir -p out/ubuntu
-          ./scripts/iostat_linux_portable.sh -o out/ubuntu 60
+          ./scripts/iostat_linux_portable.sh -o out/ubuntu 5
 
       - name: Show netstat script
         run: |
@@ -62,15 +62,15 @@ jobs:
 
       - name: Run netstat collector
         run: |
-          ./scripts/netstat_linux_portable.sh -o out/ubuntu 60
+          ./scripts/netstat_linux_portable.sh -o out/ubuntu 5
 
       - name: Run tprof collector
         run: |
-          ./scripts/tprof_linux_portable.sh -o out/ubuntu 20
+          ./scripts/tprof_linux_portable.sh -o out/ubuntu 5
 
       - name: Run vmstat collector
         run: |
-          ./scripts/vmstat_linux_portable.sh -o out/ubuntu 60
+          ./scripts/vmstat_linux_portable.sh -o out/ubuntu 5
           
       - name: Run firmware_memmap collector
         run: |
@@ -164,19 +164,19 @@ jobs:
       - name: Run iostat collector
         run: |
           mkdir -p out/${{ matrix.name }}
-          ./scripts/iostat_linux_portable.sh -o out/${{ matrix.name }} 60
+          ./scripts/iostat_linux_portable.sh -o out/${{ matrix.name }} 5
 
       - name: Run netstat collector
         run: |
-          ./scripts/netstat_linux_portable.sh -o out/${{ matrix.name }} 60
+          ./scripts/netstat_linux_portable.sh -o out/${{ matrix.name }} 5
 
       - name: Run tprof collector
         run: |
-          ./scripts/tprof_linux_portable.sh -o out/${{ matrix.name }} 20
+          ./scripts/tprof_linux_portable.sh -o out/${{ matrix.name }} 5
 
       - name: Run vmstat collector
         run: |
-          ./scripts/vmstat_linux_portable.sh -o out/${{ matrix.name }} 60
+          ./scripts/vmstat_linux_portable.sh -o out/${{ matrix.name }} 5
           
       - name: Run firmware_memmap collector
         run: |
