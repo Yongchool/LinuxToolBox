@@ -78,6 +78,7 @@ jobs:
           ls -ld /sys/firmware || true
           ls -ld /sys/firmware/efi || true
           ls -ld /sys/firmware/memmap || true
+          ls -al /sys/firmware/memmap/
     
       - name: Run firmware_memmap collector
         run: |
@@ -192,6 +193,7 @@ jobs:
           ls -ld /sys/firmware || true
           ls -ld /sys/firmware/efi || true
           ls -ld /sys/firmware/memmap || true
+          ls -al /sys/firmware/memmap/
           
       - name: Run firmware_memmap collector
         run: |
