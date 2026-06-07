@@ -169,10 +169,6 @@ echo "DEBUG: idx_file content:" >&2
 cat "$idx_file" >&2 || true
 
 
-if [ "$found_any" -eq 0 ] || [ ! -s "$idx_file" ]; then
-    error_exit "no numeric entries found under $memmap_dir"
-fi
-
 # Generate output into a temporary file first for atomic replacement.
 {
     echo "# source: /sys/firmware/memmap"
