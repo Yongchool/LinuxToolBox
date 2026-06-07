@@ -94,14 +94,9 @@ fi
 out_file=$1
 memmap_dir=/sys/firmware/memmap
 
-print_ls_debug /sys/firmware
-print_ls_debug /sys/firmware/efi
-print_ls_debug /sys/firmware/memmap
-
 if [ ! -d "$memmap_dir" ]; then
     error_exit "$memmap_dir does not exist"
 fi
-
 
 out_dir=$(safe_dirname "$out_file")
 
@@ -138,23 +133,34 @@ trap cleanup EXIT HUP INT TERM
 # Build numeric index list at collection time.
 # This avoids shell glob order such as 0, 1, 10, 11, 2, 3...
 found_any=0
+
+echo "DEBUG: listing entries under $memmap_dir" >&2
+ls -la "$memmap_dir" >&2 || true
+
 for entry in "$memmap_dir"/*; do
+    echo "DEBUG: raw entry = [$entry]" >&2
+
     if [ ! -d "$entry" ]; then
+        echo "DEBUG: skipped (not a directory): [$entry]" >&2
         continue
     fi
 
     index=$(safe_basename "$entry")
+    echo "DEBUG: basename index = [$index]" >&2
 
     case "$index" in
         *[!0-9]*|'')
-            # Skip unexpected non-numeric entries defensively.
+            echo "DEBUG: skipped by numeric filter: [$index]" >&2
             continue
             ;;
     esac
 
+    echo "DEBUG: accepted index = [$index]" >&2
     printf '%s\n' "$index"
-    found_any=1
 done | sort -n > "$idx_file"
+
+echo "DEBUG: idx_file content:" >&2
+cat "$idx_file" >&2 || true
 
 if [ "$found_any" -eq 0 ] || [ ! -s "$idx_file" ]; then
     error_exit "no numeric entries found under $memmap_dir"
