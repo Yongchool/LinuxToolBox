@@ -50,7 +50,7 @@ jobs:
       - name: Run firmware_memmap collector
         run: |
           mkdir -p out/ubuntu
-          ./scripts/collect_firmware_memmap_portable.sh out/ubuntu/firmware_memmap.out
+          ./scripts/collect_firmware_memmap_portable.sh out/ubuntu/firmware_memmap.log
 
       - name: Validate output files
         run: |
@@ -129,7 +129,7 @@ jobs:
       - name: Run firmware_memmap collector
         run: |
           mkdir -p out/${{ matrix.name }}
-          ./scripts/collect_firmware_memmap_portable.sh out/${{ matrix.name }}/firmware_memmap.out
+          ./scripts/collect_firmware_memmap_portable.sh out/${{ matrix.name }}/firmware_memmap.log
 
       - name: Validate output files
         run: |        
