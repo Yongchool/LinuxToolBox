@@ -94,8 +94,10 @@ fi
 out_file=$1
 memmap_dir=/sys/firmware/memmap
 
+# Condition 1: memmap path missing -> print message and exit immediately
 if [ ! -d "$memmap_dir" ]; then
-    error_exit "$memmap_dir does not exist"
+    echo "ERROR: $memmap_dir does not exist" >&2
+    exit 1
 fi
 
 out_dir=$(safe_dirname "$out_file")
@@ -132,42 +134,33 @@ trap cleanup EXIT HUP INT TERM
 
 # Build numeric index list at collection time.
 # This avoids shell glob order such as 0, 1, 10, 11, 2, 3...
-found_any=0
 idx_count=0
 : > "$idx_file"
 
-echo "DEBUG: listing entries under $memmap_dir" >&2
-ls -la "$memmap_dir" >&2 || true
-
 for entry in "$memmap_dir"/*; do
-    echo "DEBUG: raw entry = [$entry]" >&2
-
     if [ ! -d "$entry" ]; then
-        echo "DEBUG: skipped (not a directory): [$entry]" >&2
         continue
     fi
 
     index=$(safe_basename "$entry")
-    echo "DEBUG: basename index = [$index]" >&2
 
     case "$index" in
         *[!0-9]*|'')
-            echo "DEBUG: skipped by numeric filter: [$index]" >&2
             continue
             ;;
     esac
 
-    echo "DEBUG: accepted index = [$index]" >&2
     printf '%s\n' "$index" >> "$idx_file"
     idx_count=$((idx_count + 1))
 done
 
 sort -n "$idx_file" -o "$idx_file"
 
-echo "DEBUG: idx_count = [$idx_count]" >&2
-echo "DEBUG: idx_file content:" >&2
-cat "$idx_file" >&2 || true
-
+# Condition 2: no numeric entries found -> print message and exit immediately
+if [ "$idx_count" -eq 0 ]; then
+    echo "ERROR: no numeric entries found under $memmap_dir" >&2
+    exit 1
+fi
 
 # Generate output into a temporary file first for atomic replacement.
 {
