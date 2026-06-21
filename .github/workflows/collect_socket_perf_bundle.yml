@@ -51,8 +51,8 @@ jobs:
         run: |
           mkdir -p out/ubuntu
           scripts/collect_socket_perf_bundle.sh -d 60 -i 10 -o out/ubuntu/socket_bundle.log
-          scripts/collect_socket_perf_bundle.sh -d 60 -i 10 -p 22,443,8443 -o out/ubuntu/socket_bundle_fuser.log
-          sudo scripts/collect_socket_perf_bundle.sh -d 60 -i 5 -n 1234 -o out/ubuntu/socket_bundle_ns.log
+          scripts/collect_socket_perf_bundle.sh -d 60 -i 10 -p 22 -o out/ubuntu/socket_bundle_fuser.log
+          sudo scripts/collect_socket_perf_bundle.sh -d 60 -i 5 -n 1 -o out/ubuntu/socket_bundle_ns.log
           sudo scripts/collect_socket_perf_bundle.sh -d 60 -i 10 -I eth0 -C 15 -o out/ubuntu/socket_bundle_pcap.log
 
       - name: Validate output files
@@ -133,8 +133,8 @@ jobs:
         run: |
           mkdir -p out/${{ matrix.name }}
           scripts/collect_socket_perf_bundle.sh -d 60 -i 10 -o out/${{ matrix.name }}/socket_bundle.log
-          scripts/collect_socket_perf_bundle.sh -d 60 -i 10 -p 22,443,8443 -o out/${{ matrix.name }}/socket_bundle_fuser.log
-          sudo scripts/collect_socket_perf_bundle.sh -d 60 -i 5 -n 1234 -o out/${{ matrix.name }}/socket_bundle_ns.log
+          scripts/collect_socket_perf_bundle.sh -d 60 -i 10 -p 22 -o out/${{ matrix.name }}/socket_bundle_fuser.log
+          sudo scripts/collect_socket_perf_bundle.sh -d 60 -i 5 -n 1 -o out/${{ matrix.name }}/socket_bundle_ns.log
           sudo scripts/collect_socket_perf_bundle.sh -d 60 -i 10 -I eth0 -C 15 -o out/${{ matrix.name }}/socket_bundle_pcap.log
 
       - name: Validate output files
