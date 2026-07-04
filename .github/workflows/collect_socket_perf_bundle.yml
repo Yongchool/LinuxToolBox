@@ -1,4 +1,4 @@
-name: Linux Portable Script Test
+name: Socket Perf Collector CI
 
 on:
   push:
