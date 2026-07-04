@@ -1,4 +1,4 @@
-name: Linux Portable Script Test
+name: Firmware Memmap Collector CI
 
 on:
   push:
