@@ -1,0 +1,212 @@
+
+name: Tcpdump Collector CI
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - "scripts/collect_tcpdump_perf.sh"
+      - ".github/workflows/collect_tcpdump_perf.yml"
+  pull_request:
+    paths:
+      - "scripts/collect_tcpdump_perf.sh"
+      - ".github/workflows/collect_tcpdump_perf.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: tcpdump-ci-${ github.ref }
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SCRIPT_PATH: scripts/collect_tcpdump_perf.sh
+
+jobs:
+  ubuntu-native:
+    name: Ubuntu native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip tcpdump
+
+      - name: Prepare script
+        run: |
+          sed -i 's/\r$//' "${{ env.SCRIPT_PATH }}"
+          chmod +x "${{ env.SCRIPT_PATH }}"
+          bash -n "${{ env.SCRIPT_PATH }}"
+
+      - name: Debug environment
+        run: |
+          pwd
+          ls -l "${{ env.SCRIPT_PATH }}"
+          uname -a
+          cat /etc/os-release || true
+          echo "PATH=$PATH"
+
+      - name: Run help
+        run: |
+          "${{ env.SCRIPT_PATH }}" --help
+
+      - name: List tcpdump interfaces
+        run: |
+          "${{ env.SCRIPT_PATH }}" --list-interfaces
+
+      - name: Run basic auto interface capture
+        run: |
+          mkdir -p out/${{ matrix.os }}/basic
+          "${{ env.SCRIPT_PATH }}" -I auto -d 2 -i 1 -c 1 -o out/${{ matrix.os }}/basic
+
+      - name: Run specific interface capture
+        run: |
+          IFACE=$(ip -o link show 2>/dev/null | awk -F': ' '$2 != "lo" {sub(/@.*/, "", $2); print $2; exit}')
+          [ -n "$IFACE" ] || IFACE=lo
+          mkdir -p out/${{ matrix.os }}/specific
+          "${{ env.SCRIPT_PATH }}" -I "$IFACE" -d 2 -i 1 -c 1 -s 160 -o out/${{ matrix.os }}/specific
+
+      - name: Run any interface with BPF filter
+        run: |
+          mkdir -p out/${{ matrix.os }}/any-filter
+          "${{ env.SCRIPT_PATH }}" -I any -d 2 -i 1 -c 1 -f 'port 22 or port 443' -o out/${{ matrix.os }}/any-filter
+
+      - name: Run min max packet length filter
+        run: |
+          mkdir -p out/${{ matrix.os }}/minmax
+          "${{ env.SCRIPT_PATH }}" -I auto --min-len 100 --max-len 1500 -d 2 -i 1 -c 1 -o out/${{ matrix.os }}/minmax
+
+      - name: Run full mode and full snaplen compressed
+        run: |
+          mkdir -p out/${{ matrix.os }}/full
+          "${{ env.SCRIPT_PATH }}" -I auto -m full -s 0 --compress -d 2 -i 1 -c 1 --max-file-mb 10 -o out/${{ matrix.os }}/full
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tcpdump-ubuntu-${{ matrix.os }}
+          path: out/
+          if-no-files-found: warn
+
+  linux-container-matrix:
+    name: Container test (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: rockylinux-8
+            image: rockylinux:8
+            install: |
+              dnf install -y bash coreutils findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip tcpdump
+          - name: rockylinux-9
+            image: rockylinux:9
+            install: |
+              dnf install -y bash coreutils findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip tcpdump
+          - name: debian-11
+            image: debian:11
+            install: |
+              apt-get update
+              apt-get install -y bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip tcpdump
+          - name: debian-12
+            image: debian:12
+            install: |
+              apt-get update
+              apt-get install -y bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip tcpdump
+          - name: oraclelinux-8
+            image: oraclelinux:8
+            install: |
+              dnf install -y bash coreutils findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip tcpdump
+          - name: oraclelinux-9
+            image: oraclelinux:9
+            install: |
+              dnf install -y bash coreutils findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip tcpdump
+          - name: suse-15-sp6
+            image: registry.suse.com/bci/bci-base:15.6
+            install: |
+              zypper --non-interactive refresh
+              zypper --non-interactive install bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip tcpdump
+          # SLES 12 SP5 requires authenticated SUSE LTSS image or self-hosted runner.
+          # Keep SLES 12 SP5 validation in a separate authenticated workflow/job if needed.
+
+    container:
+      image: ${{ matrix.image }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          ${{ matrix.install }}
+
+      - name: Prepare script
+        run: |
+          sed -i 's/\r$//' "${{ env.SCRIPT_PATH }}"
+          chmod +x "${{ env.SCRIPT_PATH }}"
+          bash -n "${{ env.SCRIPT_PATH }}"
+
+      - name: Debug environment
+        run: |
+          pwd
+          ls -l "${{ env.SCRIPT_PATH }}"
+          uname -a
+          cat /etc/os-release || true
+          echo "PATH=$PATH"
+
+      - name: Run help
+        run: |
+          "${{ env.SCRIPT_PATH }}" --help
+
+      - name: List tcpdump interfaces
+        run: |
+          "${{ env.SCRIPT_PATH }}" --list-interfaces
+
+      - name: Run basic auto interface capture
+        run: |
+          mkdir -p out/${{ matrix.name }}/basic
+          "${{ env.SCRIPT_PATH }}" -I auto -d 2 -i 1 -c 1 -o out/${{ matrix.name }}/basic
+
+      - name: Run specific interface capture
+        run: |
+          IFACE=$(ip -o link show 2>/dev/null | awk -F': ' '$2 != "lo" {sub(/@.*/, "", $2); print $2; exit}')
+          [ -n "$IFACE" ] || IFACE=lo
+          mkdir -p out/${{ matrix.name }}/specific
+          "${{ env.SCRIPT_PATH }}" -I "$IFACE" -d 2 -i 1 -c 1 -s 160 -o out/${{ matrix.name }}/specific
+
+      - name: Run any interface with BPF filter
+        run: |
+          mkdir -p out/${{ matrix.name }}/any-filter
+          "${{ env.SCRIPT_PATH }}" -I any -d 2 -i 1 -c 1 -f 'port 22 or port 443' -o out/${{ matrix.name }}/any-filter
+
+      - name: Run min max packet length filter
+        run: |
+          mkdir -p out/${{ matrix.name }}/minmax
+          "${{ env.SCRIPT_PATH }}" -I auto --min-len 100 --max-len 1500 -d 2 -i 1 -c 1 -o out/${{ matrix.name }}/minmax
+
+      - name: Run full mode and full snaplen compressed
+        run: |
+          mkdir -p out/${{ matrix.name }}/full
+          "${{ env.SCRIPT_PATH }}" -I auto -m full -s 0 --compress -d 2 -i 1 -c 1 --max-file-mb 10 -o out/${{ matrix.name }}/full
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tcpdump-${{ matrix.name }}
+          path: out/
+          if-no-files-found: warn

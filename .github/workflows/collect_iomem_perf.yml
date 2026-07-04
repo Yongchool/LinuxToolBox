@@ -1,0 +1,180 @@
+
+name: Iomem Collector CI
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - "scripts/collect_iomem_perf.sh"
+      - ".github/workflows/collect_iomem_perf.yml"
+  pull_request:
+    paths:
+      - "scripts/collect_iomem_perf.sh"
+      - ".github/workflows/collect_iomem_perf.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: iomem-ci-${ github.ref }
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SCRIPT_PATH: scripts/collect_iomem_perf.sh
+
+jobs:
+  ubuntu-native:
+    name: Ubuntu native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip pciutils
+
+      - name: Prepare script
+        run: |
+          sed -i 's/\r$//' "${{ env.SCRIPT_PATH }}"
+          chmod +x "${{ env.SCRIPT_PATH }}"
+          bash -n "${{ env.SCRIPT_PATH }}"
+
+      - name: Debug environment
+        run: |
+          pwd
+          ls -l "${{ env.SCRIPT_PATH }}"
+          uname -a
+          cat /etc/os-release || true
+          echo "PATH=$PATH"
+
+      - name: Run help
+        run: |
+          "${{ env.SCRIPT_PATH }}" --help
+
+      - name: Run basic
+        run: |
+          mkdir -p out/${{ matrix.os }}/basic
+          "${{ env.SCRIPT_PATH }}" -d 3 -i 1 -m basic -o out/${{ matrix.os }}/basic
+
+      - name: Run detail
+        run: |
+          mkdir -p out/${{ matrix.os }}/detail
+          "${{ env.SCRIPT_PATH }}" -d 3 -i 1 -m detail -o out/${{ matrix.os }}/detail
+
+      - name: Run full compressed
+        run: |
+          mkdir -p out/${{ matrix.os }}/full
+          "${{ env.SCRIPT_PATH }}" -d 3 -i 1 -m full --compress -o out/${{ matrix.os }}/full
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iomem-ubuntu-${{ matrix.os }}
+          path: out/
+          if-no-files-found: warn
+
+  linux-container-matrix:
+    name: Container test (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: rockylinux-8
+            image: rockylinux:8
+            install: |
+              dnf install -y bash coreutils findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils || true
+          - name: rockylinux-9
+            image: rockylinux:9
+            install: |
+              dnf install -y bash coreutils findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils || true
+          - name: debian-11
+            image: debian:11
+            install: |
+              apt-get update
+              apt-get install -y bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip pciutils
+          - name: debian-12
+            image: debian:12
+            install: |
+              apt-get update
+              apt-get install -y bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip pciutils
+          - name: oraclelinux-8
+            image: oraclelinux:8
+            install: |
+              dnf install -y bash coreutils findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils || true
+          - name: oraclelinux-9
+            image: oraclelinux:9
+            install: |
+              dnf install -y bash coreutils findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils || true
+          - name: suse-15-sp6
+            image: registry.suse.com/bci/bci-base:15.6
+            install: |
+              zypper --non-interactive refresh
+              zypper --non-interactive install bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip pciutils || true
+          # SLES 12 SP5 requires authenticated SUSE LTSS image or self-hosted runner.
+          # Keep SLES 12 SP5 validation in a separate authenticated workflow/job if needed.
+
+    container:
+      image: ${{ matrix.image }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          ${{ matrix.install }}
+
+      - name: Prepare script
+        run: |
+          sed -i 's/\r$//' "${{ env.SCRIPT_PATH }}"
+          chmod +x "${{ env.SCRIPT_PATH }}"
+          bash -n "${{ env.SCRIPT_PATH }}"
+
+      - name: Debug environment
+        run: |
+          pwd
+          ls -l "${{ env.SCRIPT_PATH }}"
+          uname -a
+          cat /etc/os-release || true
+          echo "PATH=$PATH"
+
+      - name: Run help
+        run: |
+          "${{ env.SCRIPT_PATH }}" --help
+
+      - name: Run basic
+        run: |
+          mkdir -p out/${{ matrix.name }}/basic
+          "${{ env.SCRIPT_PATH }}" -d 3 -i 1 -m basic -o out/${{ matrix.name }}/basic
+
+      - name: Run detail
+        run: |
+          mkdir -p out/${{ matrix.name }}/detail
+          "${{ env.SCRIPT_PATH }}" -d 3 -i 1 -m detail -o out/${{ matrix.name }}/detail
+
+      - name: Run full compressed
+        run: |
+          mkdir -p out/${{ matrix.name }}/full
+          "${{ env.SCRIPT_PATH }}" -d 3 -i 1 -m full --compress -o out/${{ matrix.name }}/full
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iomem-${{ matrix.name }}
+          path: out/
+          if-no-files-found: warn
