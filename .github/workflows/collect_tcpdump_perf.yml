@@ -108,11 +108,11 @@ jobs:
           - name: rockylinux-8
             image: rockylinux:8
             install: |
-              dnf install -y bash coreutils findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip tcpdump
+              dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip tcpdump
           - name: rockylinux-9
             image: rockylinux:9
             install: |
-              dnf install -y bash coreutils findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip tcpdump
+              dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip tcpdump
           - name: debian-11
             image: debian:11
             install: |
