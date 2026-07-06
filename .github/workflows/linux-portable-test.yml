@@ -3,7 +3,13 @@ name: Linux Portable Script Test
 on:
   push:
     branches: [ main, master ]
+    paths:
+      - "scripts/vmstat_linux_portable.sh"
+      - ".github/workflows/linux-portable-test.yml"
   pull_request:
+    paths:
+      - "scripts/vmstat_linux_portable.sh"
+      - ".github/workflows/linux-portable-test.yml"
   workflow_dispatch:
 
 jobs:
