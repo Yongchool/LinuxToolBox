@@ -78,7 +78,7 @@ jobs:
       - name: Run any interface with BPF filter
         run: |
           mkdir -p out/${{ matrix.os }}/any-filter
-          "${{ env.SCRIPT_PATH }}" -I any -d 2 -i 1 -c 1 -f 'port 22 or port 443' -o out/${{ matrix.os }}/any-filter
+          "${{ env.SCRIPT_PATH }}" -I auto -d 2 -i 1 -c 1 -f 'port 22 or port 443' -o out/${{ matrix.os }}/any-filter
 
       - name: Run min max packet length filter
         run: |
@@ -191,7 +191,7 @@ jobs:
       - name: Run any interface with BPF filter
         run: |
           mkdir -p out/${{ matrix.name }}/any-filter
-          "${{ env.SCRIPT_PATH }}" -I any -d 2 -i 1 -c 1 -f 'port 22 or port 443' -o out/${{ matrix.name }}/any-filter
+          "${{ env.SCRIPT_PATH }}" -I auto -d 2 -i 1 -c 1 -f 'port 22 or port 443' -o out/${{ matrix.name }}/any-filter
 
       - name: Run min max packet length filter
         run: |
