@@ -20,6 +20,9 @@
 #   - /proc/iomem may redact physical addresses as 00000000-00000000 depending on
 #     kernel/security settings and privileges. Run as root for best evidence.
 #   - This script is read-only. It does not change kernel parameters or security settings.
+#   - GitHub Actions artifact upload rejects some path characters such as ':'.
+#     Therefore PCI BDF directory names are sanitized and original BDF values are
+#     preserved in original_pci_bdf.txt.
 #
 # Modes:
 #   basic  : /proc/iomem raw snapshots + selected resource summary + first/last diff
@@ -115,6 +118,13 @@ safe_read() {
     fi
 }
 
+# Sanitize path components for GitHub Actions artifact compatibility.
+# Linux allows ':' in file names, but artifact upload rejects characters
+# that can break downloads on filesystems such as NTFS.
+sanitize_artifact_name() {
+    printf '%s' "$1" | sed 's/["*:<>?|\\]/_/g; s/[[:space:]]/_/g'
+}
+
 parse_args() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -191,6 +201,10 @@ save_metadata() {
         echo
         echo "[security hint]"
         echo "/proc/iomem may redact addresses depending on kernel/security settings and privileges."
+        echo
+        echo "[artifact compatibility]"
+        echo "PCI BDF directory names are sanitized for GitHub Actions artifact upload."
+        echo "Original PCI BDF values are preserved in original_pci_bdf.txt."
         echo
         echo "[available commands]"
         for c in awk sed grep diff sort uniq wc dmesg journalctl lspci find tar gzip; do
@@ -320,10 +334,18 @@ collect_sys_resources_full() {
 
     if [ -d /sys/bus/pci/devices ]; then
         mkdir -p "$dst/pci_resources"
+
         for dev in /sys/bus/pci/devices/*; do
             [ -d "$dev" ] || continue
-            name=$(basename "$dev")
+
+            raw_name=$(basename "$dev")
+            name=$(sanitize_artifact_name "$raw_name")
+
             mkdir -p "$dst/pci_resources/$name"
+
+            # Preserve original PCI BDF because ':' is replaced for artifact compatibility.
+            echo "$raw_name" > "$dst/pci_resources/$name/original_pci_bdf.txt"
+
             for f in resource resource0 resource1 resource2 resource3 resource4 resource5 vendor device class numa_node; do
                 [ -e "$dev/$f" ] || continue
                 if [ -r "$dev/$f" ] && [ ! -d "$dev/$f" ]; then
