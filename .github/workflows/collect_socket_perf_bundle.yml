@@ -3,7 +3,7 @@ name: Socket Perf Collector CI
 on:
   push:
     branches: [ main, master ]
-      paths:
+    paths:
       - "scripts/collect_socket_perf_bundle.sh"
       - ".github/workflows/collect_socket_perf_bundle.yml"
   pull_request:
