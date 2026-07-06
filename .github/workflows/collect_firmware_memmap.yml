@@ -3,7 +3,13 @@ name: Firmware Memmap Collector CI
 on:
   push:
     branches: [ main, master ]
+    paths:
+      - "scripts/collect_firmware_memmap.sh"
+      - ".github/workflows/collect_firmware_memmap.yml"
   pull_request:
+    paths:
+      - "scripts/collect_firmware_memmap.sh"
+      - ".github/workflows/collect_firmware_memmap.yml"
   workflow_dispatch:
 
 jobs:
