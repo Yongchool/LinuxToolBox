@@ -4,27 +4,19 @@
 # Orchestrator for LinuxToolBox collector scripts.
 #
 # Purpose:
-#   - Run multiple uploaded collector scripts in one command.
+#   - Run multiple collector scripts in one command.
 #   - Allow running all collectors or selected collectors with --only/--exclude.
 #   - Provide safe CI/smoke profiles with short duration/interval values.
 #   - Keep each collector output isolated under one parent output directory.
 #   - Record command, exit code, start/end timestamps, and logs per collector.
 #
-# Expected script location:
-#   By default this orchestrator searches scripts in ./scripts first, then current directory.
-#
-# Supported collector keys:
-#   datastore, firmware_memmap, iomem, meminfo, rpc_nfs_cifs,
-#   socket, sysrq_netconsole, tcpdump, vmstat
-#
-# Examples:
-#   ./run_linux_toolbox_collectors.sh --profile smoke -o ./out/all
-#   ./run_linux_toolbox_collectors.sh --only vmstat,meminfo,iomem --profile detail -o ./out/memory
-#   ./run_linux_toolbox_collectors.sh --exclude tcpdump,sysrq_netconsole -d 600 -i 60 -o ./out/safe
-#   ./run_linux_toolbox_collectors.sh --list
-#   ./run_linux_toolbox_collectors.sh --dry-run --profile full
+# Important CI behavior:
+#   GitHub Actions often executes shell steps with errexit semantics.  This
+#   orchestrator intentionally disables errexit and handles each collector exit
+#   code explicitly so --continue-on-error works as expected.
 #
 
+set +e
 set -u
 umask 077
 export LC_ALL=C
@@ -48,6 +40,7 @@ TCPDUMP_FILTER=""
 SOCKET_PORTS="22,80,443"
 RPC_PORTS="111,2049,445,139"
 NETNS_PID=""
+SKIP_UNAVAILABLE=1
 
 COLLECTOR_ORDER="datastore firmware_memmap iomem meminfo rpc_nfs_cifs socket sysrq_netconsole tcpdump vmstat"
 
@@ -67,6 +60,7 @@ General options:
   --continue-on-error        Do not fail overall run if a collector fails
   --dry-run                  Print commands but do not execute collectors
   --compress                 Ask supported collectors to compress their own output, and create final tar.gz
+  --no-skip-unavailable      Do not soft-skip collectors when required kernel paths are unavailable
   --list                     List known collector keys and script filenames
   -h, --help                 Show help
 
@@ -98,8 +92,8 @@ Profiles:
 
 Notes:
   - SysRq collector is executed with --dry-run unless --enable-real-sysrq is specified.
-  - tcpdump collector is skipped by default for safety/capability reasons unless --enable-tcpdump or --only tcpdump is used.
-  - firmware_memmap collector writes a single output file, not a directory.
+  - tcpdump collector is skipped by default unless --enable-tcpdump or --only tcpdump is used.
+  - firmware_memmap depends on /sys/firmware/memmap. In containers this path is commonly absent, so it is soft-skipped by default.
 EOF
 }
 
@@ -172,9 +166,7 @@ default_interval() {
 }
 
 resolve_script_dir() {
-    if [ -n "$SCRIPT_DIR" ]; then
-        return 0
-    fi
+    [ -n "$SCRIPT_DIR" ] && return 0
     if [ -d ./scripts ]; then
         SCRIPT_DIR=./scripts
     else
@@ -218,6 +210,8 @@ parse_args() {
                 DRY_RUN=1; shift ;;
             --compress)
                 COMPRESS=1; shift ;;
+            --no-skip-unavailable)
+                SKIP_UNAVAILABLE=0; shift ;;
             --enable-tcpdump)
                 ENABLE_TCPDUMP=1; shift ;;
             --tcpdump-iface)
@@ -278,7 +272,6 @@ should_run_key() {
         return 1
     fi
 
-    # tcpdump is skipped by default unless explicitly enabled or explicitly selected.
     if [ "$key" = "tcpdump" ] && [ "$ENABLE_TCPDUMP" -ne 1 ]; then
         if [ -n "$ONLY" ] && contains_key "$ONLY" "tcpdump"; then
             return 0
@@ -305,11 +298,7 @@ build_command() {
             mkdir -p "$collector_out" 2>/dev/null || true
             cmd="\"$script_path\" \"$collector_out/firmware_memmap.out\""
             ;;
-        iomem)
-            cmd="\"$script_path\" -d $DURATION -i $INTERVAL -m $mode -o \"$collector_out\""
-            [ "$COMPRESS" -eq 1 ] && cmd="$cmd --compress"
-            ;;
-        meminfo)
+        iomem|meminfo|vmstat)
             cmd="\"$script_path\" -d $DURATION -i $INTERVAL -m $mode -o \"$collector_out\""
             [ "$COMPRESS" -eq 1 ] && cmd="$cmd --compress"
             ;;
@@ -323,22 +312,17 @@ build_command() {
             [ -n "$NETNS_PID" ] && cmd="$cmd -n $NETNS_PID"
             ;;
         sysrq_netconsole)
-            cmd="\"$script_path\" -d $DURATION -i $INTERVAL -m $mode -o \"$collector_out\" --netconsole-remote 10.0.0.10:6666 --netconsole-iface eth0"
-            if [ "$ENABLE_REAL_SYSRQ" -ne 1 ]; then
-                cmd="$cmd --dry-run"
-            fi
+            sysrq_mode=$mode
+            [ "$sysrq_mode" = "full" ] && sysrq_mode="full-every-interval"
+            cmd="\"$script_path\" -d $DURATION -i $INTERVAL -m $sysrq_mode -o \"$collector_out\" --netconsole-remote 10.0.0.10:6666 --netconsole-iface eth0"
+            [ "$ENABLE_REAL_SYSRQ" -ne 1 ] && cmd="$cmd --dry-run"
             ;;
         tcpdump)
             cmd="\"$script_path\" -I $TCPDUMP_IFACE -d $DURATION -i $INTERVAL -c 1 -m $mode -o \"$collector_out\""
             [ -n "$TCPDUMP_FILTER" ] && cmd="$cmd -f '$TCPDUMP_FILTER'"
             [ "$COMPRESS" -eq 1 ] && cmd="$cmd --compress"
             ;;
-        vmstat)
-            cmd="\"$script_path\" -d $DURATION -i $INTERVAL -m $mode -o \"$collector_out\""
-            [ "$COMPRESS" -eq 1 ] && cmd="$cmd --compress"
-            ;;
-        *)
-            return 1 ;;
+        *) return 1 ;;
     esac
 
     printf '%s' "$cmd"
@@ -346,13 +330,24 @@ build_command() {
 
 prepare_script() {
     script_path=$1
-    if [ ! -f "$script_path" ]; then
-        return 1
-    fi
+    [ -f "$script_path" ] || return 1
     sed -i 's/\r$//' "$script_path" 2>/dev/null || true
     chmod +x "$script_path" 2>/dev/null || true
     bash -n "$script_path" 2>/dev/null || return 2
     return 0
+}
+
+is_soft_unavailable() {
+    key=$1
+    stderr_file=$2
+    [ "$SKIP_UNAVAILABLE" -eq 1 ] || return 1
+
+    case "$key" in
+        firmware_memmap)
+            grep -E '(/sys/firmware/memmap does not exist|no numeric entries found under /sys/firmware/memmap)' "$stderr_file" >/dev/null 2>&1 && return 0
+            ;;
+    esac
+    return 1
 }
 
 run_one() {
@@ -396,16 +391,23 @@ run_one() {
     log "INFO: running [$key]"
     log "INFO: command: $cmd"
 
-    set +e
     bash -lc "$cmd" > "$result_dir/stdout.txt" 2> "$result_dir/stderr.txt"
     rc=$?
-    set -e 2>/dev/null || true
+
+    if [ "$rc" -ne 0 ] && is_soft_unavailable "$key" "$result_dir/stderr.txt"; then
+        rc=0
+        soft_status="soft_skipped_unavailable"
+    else
+        soft_status=""
+    fi
 
     {
         echo "end_utc=$(now_utc)"
         echo "end_epoch=$(now_epoch)"
         echo "exit_code=$rc"
-        if [ "$rc" -eq 0 ]; then
+        if [ -n "$soft_status" ]; then
+            echo "status=$soft_status"
+        elif [ "$rc" -eq 0 ]; then
             echo "status=success"
         else
             echo "status=failed"
@@ -430,6 +432,7 @@ write_run_metadata() {
         echo "exclude=${EXCLUDE:-none}"
         echo "dry_run=$DRY_RUN"
         echo "continue_on_error=$CONTINUE_ON_ERROR"
+        echo "skip_unavailable=$SKIP_UNAVAILABLE"
         echo "enable_tcpdump=$ENABLE_TCPDUMP"
         echo "enable_real_sysrq=$ENABLE_REAL_SYSRQ"
         echo "tcpdump_iface=$TCPDUMP_IFACE"
@@ -487,8 +490,8 @@ main() {
     for key in $COLLECTOR_ORDER; do
         should_run_key "$key" || continue
         ran_any=1
-        run_one "$key"
-        rc=$?
+        rc=0
+        run_one "$key" || rc=$?
         if [ "$rc" -ne 0 ]; then
             overall_rc=$rc
             log "WARN: collector failed: $key rc=$rc"
