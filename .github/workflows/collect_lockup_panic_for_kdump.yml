@@ -90,12 +90,20 @@ jobs:
           - name: rockylinux-8
             image: rockylinux:8
             install: |
-              dnf install -y bash grep sed coreutils util-linux
+              dnf install -y \
+                bash \
+                grep \
+                sed \
+                util-linux
 
           - name: rockylinux-9
             image: rockylinux:9
             install: |
-              dnf install -y bash grep sed coreutils util-linux
+              dnf install -y \
+                bash \
+                grep \
+                sed \
+                util-linux
 
           - name: debian-11
             image: debian:11
