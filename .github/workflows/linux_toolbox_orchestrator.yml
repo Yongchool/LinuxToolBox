@@ -2,7 +2,7 @@ name: LinuxToolBox Orchestrator CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     paths:
       - "scripts/*.sh"
       - ".github/workflows/linux_toolbox_orchestrator.yml"
@@ -13,21 +13,17 @@ on:
   workflow_dispatch:
     inputs:
       profile:
-        description: "Collector profile"
+        description: Collector profile
         required: false
-        default: "smoke"
+        default: smoke
         type: choice
-        options:
-          - smoke
-          - basic
-          - detail
-          - full
+        options: [smoke, basic, detail, full]
       only:
         description: "Comma-separated collectors, optional"
         required: false
         default: ""
       enable_tcpdump:
-        description: "Run tcpdump collector"
+        description: Run tcpdump collector
         required: false
         default: false
         type: boolean
@@ -50,10 +46,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, ubuntu-24.04]
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -66,89 +60,54 @@ jobs:
           find scripts -name '*.sh' -type f -exec chmod +x {} \;
           bash -n "${{ env.ORCH_PATH }}"
 
-      - name: Debug environment
-        run: |
-          uname -a
-          cat /etc/os-release || true
-          ls -l scripts/*.sh
-          command -v tcpdump || true
-          tcpdump -D || true
+      - name: List collectors
+        run: "${{ env.ORCH_PATH }} --list"
 
-      - name: Orchestrator list
+      - name: Dry run all
         run: |
-          "${{ env.ORCH_PATH }}" --list
+          "${{ env.ORCH_PATH }}" --profile smoke --dry-run --continue-on-error --exclude tcpdump -o out/${{ matrix.os }}/dry-run
 
-      - name: Orchestrator dry-run all safe collectors
+      - name: Smoke all safe collectors
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile smoke \
-            --dry-run \
-            --continue-on-error \
-            --exclude tcpdump \
-            -o out/${{ matrix.os }}/dry-run
+          "${{ env.ORCH_PATH }}" --profile smoke --continue-on-error --exclude tcpdump -o out/${{ matrix.os }}/smoke-all
 
-      - name: Orchestrator smoke all safe collectors
+      - name: CPU and memory subset
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile smoke \
-            --continue-on-error \
-            --exclude tcpdump \
-            -o out/${{ matrix.os }}/smoke-all-safe
+          "${{ env.ORCH_PATH }}" --profile smoke --continue-on-error --only vmstat,mpstat,meminfo,iomem -o out/${{ matrix.os }}/cpu-memory
 
-      - name: Orchestrator memory subset
+      - name: Network subset
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile smoke \
-            --continue-on-error \
-            --only vmstat,meminfo,iomem \
-            -o out/${{ matrix.os }}/memory-subset
+          IFACE=$(ip -o link show | awk -F': ' '$2 != "lo" {sub(/@.*/, "", $2); print $2; exit}')
+          "${{ env.ORCH_PATH }}" --profile smoke --continue-on-error --only socket,softnet,rpc_nfs_cifs --softnet-ifaces "$IFACE" --socket-ports 22,80,443 --rpc-ports 111,2049,445,139,20048 -o out/${{ matrix.os }}/network
 
-      - name: Orchestrator network subset without tcpdump
+      - name: Lockup kdump validation only
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile smoke \
-            --continue-on-error \
-            --only socket,rpc_nfs_cifs \
-            --socket-ports 22,80,443 \
-            --rpc-ports 111,2049,445,139,20048 \
-            -o out/${{ matrix.os }}/network-subset
+          "${{ env.ORCH_PATH }}" --profile smoke --only lockup_kdump -o out/${{ matrix.os }}/lockup-validation
 
-      - name: Orchestrator tcpdump optional
+      - name: Optional tcpdump
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_tcpdump == true }}
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile smoke \
-            --continue-on-error \
-            --only tcpdump \
-            --enable-tcpdump \
-            --tcpdump-iface auto \
-            --tcpdump-filter 'port 22 or port 443' \
-            -o out/${{ matrix.os }}/tcpdump-optional
+          "${{ env.ORCH_PATH }}" --profile smoke --continue-on-error --only tcpdump --enable-tcpdump --tcpdump-iface auto --tcpdump-filter 'port 22 or port 443' -o out/${{ matrix.os }}/tcpdump
 
-      - name: Orchestrator workflow_dispatch custom only
+      - name: Manual selection
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.only != '' }}
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile "${{ inputs.profile }}" \
-            --continue-on-error \
-            --only "${{ inputs.only }}" \
-            -o out/${{ matrix.os }}/manual-only
+          "${{ env.ORCH_PATH }}" --profile "${{ inputs.profile }}" --continue-on-error --only "${{ inputs.only }}" -o out/${{ matrix.os }}/manual
 
       - name: Package artifacts
         if: always()
-        run: |
-          tar -czf linux-toolbox-orchestrator-${{ matrix.os }}.tar.gz out || true
+        run: tar -czf linux-toolbox-${{ matrix.os }}.tar.gz out || true
 
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: linux-toolbox-orchestrator-${{ matrix.os }}
-          path: linux-toolbox-orchestrator-${{ matrix.os }}.tar.gz
+          name: linux-toolbox-${{ matrix.os }}
+          path: linux-toolbox-${{ matrix.os }}.tar.gz
           if-no-files-found: warn
 
   linux-container-matrix:
-    name: Container test (${{ matrix.name }})
+    name: Container (${{ matrix.name }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -157,12 +116,12 @@ jobs:
           - name: rockylinux-8
             image: rockylinux:8
             install: |
-              dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils nfs-utils cifs-utils samba-client rpcbind kmod || true
+              dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils nfs-utils cifs-utils samba-client rpcbind kmod
               dnf install -y sysstat numactl tcpdump || true
           - name: rockylinux-9
             image: rockylinux:9
             install: |
-              dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils nfs-utils cifs-utils samba-client rpcbind kmod || true
+              dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils nfs-utils cifs-utils samba-client rpcbind kmod
               dnf install -y sysstat numactl tcpdump || true
           - name: debian-11
             image: debian:11
@@ -177,35 +136,28 @@ jobs:
           - name: oraclelinux-8
             image: oraclelinux:8
             install: |
-              dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils nfs-utils cifs-utils samba-client rpcbind kmod || true
+              dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils nfs-utils cifs-utils samba-client rpcbind kmod
               dnf install -y sysstat numactl tcpdump || true
           - name: oraclelinux-9
             image: oraclelinux:9
             install: |
-              dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils nfs-utils cifs-utils samba-client rpcbind kmod || true
+              dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils nfs-utils cifs-utils samba-client rpcbind kmod
               dnf install -y sysstat numactl tcpdump || true
           - name: suse-15-sp6
             image: registry.suse.com/bci/bci-base:15.6
             install: |
               zypper --non-interactive refresh
-              zypper --non-interactive install bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip pciutils nfs-client cifs-utils samba-client rpcbind kmod || true
-              zypper --non-interactive install sysstat numactl tcpdump || true
-          # SLES 12 SP5 requires authenticated SUSE LTSS image or self-hosted runner.
-
+              zypper --non-interactive install bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip pciutils nfs-client cifs-utils samba-client rpcbind kmod sysstat numactl tcpdump
     container:
       image: ${{ matrix.image }}
-
     defaults:
       run:
         shell: bash
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: |
-          ${{ matrix.install }}
+        run: ${{ matrix.install }}
 
       - name: Prepare scripts
         run: |
@@ -213,85 +165,49 @@ jobs:
           find scripts -name '*.sh' -type f -exec chmod +x {} \;
           bash -n "${{ env.ORCH_PATH }}"
 
-      - name: Debug environment
-        run: |
-          uname -a
-          cat /etc/os-release || true
-          ls -l scripts/*.sh
-          command -v vmstat || true
-          command -v ss || true
-          command -v tcpdump || true
-          tcpdump -D || true
+      - name: List collectors
+        run: "${{ env.ORCH_PATH }} --list"
 
-      - name: Orchestrator list
+      - name: Dry run all
         run: |
-          "${{ env.ORCH_PATH }}" --list
+          "${{ env.ORCH_PATH }}" --profile smoke --dry-run --continue-on-error --exclude tcpdump -o out/${{ matrix.name }}/dry-run
 
-      - name: Orchestrator dry-run all safe collectors
+      - name: Smoke all safe collectors
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile smoke \
-            --dry-run \
-            --continue-on-error \
-            --exclude tcpdump \
-            -o out/${{ matrix.name }}/dry-run
+          "${{ env.ORCH_PATH }}" --profile smoke --continue-on-error --exclude tcpdump -o out/${{ matrix.name }}/smoke-all
 
-      - name: Orchestrator smoke all safe collectors
+      - name: CPU and memory subset
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile smoke \
-            --continue-on-error \
-            --exclude tcpdump \
-            -o out/${{ matrix.name }}/smoke-all-safe
+          "${{ env.ORCH_PATH }}" --profile smoke --continue-on-error --only vmstat,mpstat,meminfo,iomem -o out/${{ matrix.name }}/cpu-memory
 
-      - name: Orchestrator memory subset
+      - name: Network subset
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile smoke \
-            --continue-on-error \
-            --only vmstat,meminfo,iomem \
-            -o out/${{ matrix.name }}/memory-subset
+          IFACE=$(ip -o link show 2>/dev/null | awk -F': ' '$2 != "lo" {sub(/@.*/, "", $2); print $2; exit}')
+          [ -n "$IFACE" ] || IFACE=lo
+          "${{ env.ORCH_PATH }}" --profile smoke --continue-on-error --only socket,softnet,rpc_nfs_cifs --softnet-ifaces "$IFACE" --socket-ports 22,80,443 --rpc-ports 111,2049,445,139,20048 -o out/${{ matrix.name }}/network
 
-      - name: Orchestrator network subset without tcpdump
+      - name: Lockup kdump validation only
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile smoke \
-            --continue-on-error \
-            --only socket,rpc_nfs_cifs \
-            --socket-ports 22,80,443 \
-            --rpc-ports 111,2049,445,139,20048 \
-            -o out/${{ matrix.name }}/network-subset
+          "${{ env.ORCH_PATH }}" --profile smoke --only lockup_kdump -o out/${{ matrix.name }}/lockup-validation
 
-      - name: Orchestrator tcpdump optional
+      - name: Optional tcpdump
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_tcpdump == true }}
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile smoke \
-            --continue-on-error \
-            --only tcpdump \
-            --enable-tcpdump \
-            --tcpdump-iface auto \
-            --tcpdump-filter 'port 22 or port 443' \
-            -o out/${{ matrix.name }}/tcpdump-optional
+          "${{ env.ORCH_PATH }}" --profile smoke --continue-on-error --only tcpdump --enable-tcpdump --tcpdump-iface auto --tcpdump-filter 'port 22 or port 443' -o out/${{ matrix.name }}/tcpdump
 
-      - name: Orchestrator workflow_dispatch custom only
+      - name: Manual selection
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.only != '' }}
         run: |
-          "${{ env.ORCH_PATH }}" \
-            --profile "${{ inputs.profile }}" \
-            --continue-on-error \
-            --only "${{ inputs.only }}" \
-            -o out/${{ matrix.name }}/manual-only
+          "${{ env.ORCH_PATH }}" --profile "${{ inputs.profile }}" --continue-on-error --only "${{ inputs.only }}" -o out/${{ matrix.name }}/manual
 
       - name: Package artifacts
         if: always()
-        run: |
-          tar -czf linux-toolbox-orchestrator-${{ matrix.name }}.tar.gz out || true
+        run: tar -czf linux-toolbox-${{ matrix.name }}.tar.gz out || true
 
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: linux-toolbox-orchestrator-${{ matrix.name }}
-          path: linux-toolbox-orchestrator-${{ matrix.name }}.tar.gz
+          name: linux-toolbox-${{ matrix.name }}
+          path: linux-toolbox-${{ matrix.name }}.tar.gz
           if-no-files-found: warn
