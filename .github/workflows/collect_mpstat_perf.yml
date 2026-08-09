@@ -203,6 +203,11 @@ jobs:
                 numactl \
                 ethtool \
                 iproute2 \
+                sysstat \
+                gawk \
+                grep \
+                sed \
+                findutils \
                 tar \
                 gzip || true
 
