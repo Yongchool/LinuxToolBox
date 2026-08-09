@@ -1,0 +1,282 @@
+name: Mpstat Collector CI
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - "scripts/collect_mpstat_perf.sh"
+      - ".github/workflows/collect_mpstat_perf.yml"
+
+  pull_request:
+    paths:
+      - "scripts/collect_mpstat_perf.sh"
+      - ".github/workflows/collect_mpstat_perf.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SCRIPT_PATH: scripts/collect_mpstat_perf.sh
+
+jobs:
+
+  ubuntu-native:
+    name: Ubuntu native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-22.04
+          - ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            sysstat \
+            procps \
+            numactl \
+            ethtool \
+            iproute2 \
+            tar \
+            gzip
+
+      - name: Prepare script
+        run: |
+          sed -i 's/\r$//' "${{ env.SCRIPT_PATH }}"
+          chmod +x "${{ env.SCRIPT_PATH }}"
+          bash -n "${{ env.SCRIPT_PATH }}"
+
+      - name: Display help
+        run: |
+          "${{ env.SCRIPT_PATH }}" --help
+
+      - name: Run basic
+        run: |
+          mkdir -p out/${{ matrix.os }}/basic
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m basic \
+            -o out/${{ matrix.os }}/basic
+
+      - name: Run detail
+        run: |
+          mkdir -p out/${{ matrix.os }}/detail
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m detail \
+            -o out/${{ matrix.os }}/detail
+
+      - name: Run full
+        run: |
+          mkdir -p out/${{ matrix.os }}/full
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m full \
+            -o out/${{ matrix.os }}/full
+
+      - name: Run full compressed
+        run: |
+          mkdir -p out/${{ matrix.os }}/full-compress
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m full \
+            --compress \
+            -o out/${{ matrix.os }}/full-compress
+
+      - name: Package artifacts
+        if: always()
+        run: |
+          tar -czf mpstat-${{ matrix.os }}.tar.gz out || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpstat-${{ matrix.os }}
+          path: mpstat-${{ matrix.os }}.tar.gz
+          if-no-files-found: warn
+
+  linux-container-matrix:
+    name: Container (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+
+          - name: rockylinux-8
+            image: rockylinux:8
+            install: |
+              dnf install -y \
+                bash \
+                procps-ng \
+                sysstat \
+                numactl \
+                ethtool \
+                iproute \
+                tar \
+                gzip || true
+
+          - name: rockylinux-9
+            image: rockylinux:9
+            install: |
+              dnf install -y \
+                bash \
+                procps-ng \
+                sysstat \
+                numactl \
+                ethtool \
+                iproute \
+                tar \
+                gzip || true
+
+          - name: debian-11
+            image: debian:11
+            install: |
+              apt-get update
+              apt-get install -y \
+                sysstat \
+                procps \
+                numactl \
+                ethtool \
+                iproute2 \
+                tar \
+                gzip
+
+          - name: debian-12
+            image: debian:12
+            install: |
+              apt-get update
+              apt-get install -y \
+                sysstat \
+                procps \
+                numactl \
+                ethtool \
+                iproute2 \
+                tar \
+                gzip
+
+          - name: oraclelinux-8
+            image: oraclelinux:8
+            install: |
+              dnf install -y \
+                procps-ng \
+                sysstat \
+                numactl \
+                ethtool \
+                iproute \
+                tar \
+                gzip || true
+
+          - name: oraclelinux-9
+            image: oraclelinux:9
+            install: |
+              dnf install -y \
+                procps-ng \
+                sysstat \
+                numactl \
+                ethtool \
+                iproute \
+                tar \
+                gzip || true
+
+          - name: suse-15-sp6
+            image: registry.suse.com/bci/bci-base:15.6
+            install: |
+              zypper --non-interactive refresh
+              zypper --non-interactive install \
+                sysstat \
+                procps \
+                numactl \
+                ethtool \
+                iproute2 \
+                tar \
+                gzip || true
+
+    container:
+      image: ${{ matrix.image }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          ${{ matrix.install }}
+
+      - name: Prepare script
+        run: |
+          sed -i 's/\r$//' "${{ env.SCRIPT_PATH }}"
+          chmod +x "${{ env.SCRIPT_PATH }}"
+          bash -n "${{ env.SCRIPT_PATH }}"
+
+      - name: Show mpstat version
+        run: |
+          command -v mpstat || true
+          mpstat -V || true
+
+      - name: Run basic
+        run: |
+          mkdir -p out/${{ matrix.name }}/basic
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m basic \
+            -o out/${{ matrix.name }}/basic
+
+      - name: Run detail
+        run: |
+          mkdir -p out/${{ matrix.name }}/detail
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m detail \
+            -o out/${{ matrix.name }}/detail
+
+      - name: Run full
+        run: |
+          mkdir -p out/${{ matrix.name }}/full
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m full \
+            -o out/${{ matrix.name }}/full
+
+      - name: Run full compressed
+        run: |
+          mkdir -p out/${{ matrix.name }}/full-compress
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m full \
+            --compress \
+            -o out/${{ matrix.name }}/full-compress
+
+      - name: Package artifacts
+        if: always()
+        run: |
+          tar -czf mpstat-${{ matrix.name }}.tar.gz out || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpstat-${{ matrix.name }}
+          path: mpstat-${{ matrix.name }}.tar.gz
+          if-no-files-found: warn
