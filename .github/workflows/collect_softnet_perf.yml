@@ -1,0 +1,299 @@
+name: Softnet Collector CI
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - "scripts/collect_softnet_perf.sh"
+      - ".github/workflows/collect_softnet_perf.yml"
+
+  pull_request:
+    paths:
+      - "scripts/collect_softnet_perf.sh"
+      - ".github/workflows/collect_softnet_perf.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SCRIPT_PATH: scripts/collect_softnet_perf.sh
+
+jobs:
+
+  ubuntu-native:
+    name: Ubuntu native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-22.04
+          - ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            procps \
+            iproute2 \
+            ethtool \
+            sysstat \
+            numactl \
+            tar \
+            gzip
+
+      - name: Prepare script
+        run: |
+          sed -i 's/\r$//' "${{ env.SCRIPT_PATH }}"
+          chmod +x "${{ env.SCRIPT_PATH }}"
+          sh -n "${{ env.SCRIPT_PATH }}"
+
+      - name: Show help
+        run: |
+          "${{ env.SCRIPT_PATH }}" --help
+
+      - name: Run basic
+        run: |
+          mkdir -p out/${{ matrix.os }}/basic
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m basic \
+            -o out/${{ matrix.os }}/basic
+
+      - name: Run detail
+        run: |
+          mkdir -p out/${{ matrix.os }}/detail
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m detail \
+            -o out/${{ matrix.os }}/detail
+
+      - name: Run full
+        run: |
+          mkdir -p out/${{ matrix.os }}/full
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m full \
+            -o out/${{ matrix.os }}/full
+
+      - name: Run interface-specific test
+        run: |
+          IFACE=$(ip -o link show | awk -F': ' '$2 != "lo" {sub(/@.*/, "", $2); print $2; exit}')
+          mkdir -p out/${{ matrix.os }}/iface
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m detail \
+            -I "$IFACE" \
+            -o out/${{ matrix.os }}/iface
+
+      - name: Run compressed mode
+        run: |
+          mkdir -p out/${{ matrix.os }}/compress
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m full \
+            --compress \
+            -o out/${{ matrix.os }}/compress
+
+      - name: Package artifacts
+        if: always()
+        run: |
+          tar -czf softnet-${{ matrix.os }}.tar.gz out || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: softnet-${{ matrix.os }}
+          path: softnet-${{ matrix.os }}.tar.gz
+          if-no-files-found: warn
+
+  linux-container-matrix:
+    name: Container (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+
+          - name: rockylinux-8
+            image: rockylinux:8
+            install: |
+              dnf install -y \
+                procps-ng \
+                iproute \
+                ethtool \
+                sysstat \
+                numactl \
+                tar \
+                gzip || true
+
+          - name: rockylinux-9
+            image: rockylinux:9
+            install: |
+              dnf install -y \
+                procps-ng \
+                iproute \
+                ethtool \
+                sysstat \
+                numactl \
+                tar \
+                gzip || true
+
+          - name: debian-11
+            image: debian:11
+            install: |
+              apt-get update
+              apt-get install -y \
+                procps \
+                iproute2 \
+                ethtool \
+                sysstat \
+                numactl \
+                tar \
+                gzip
+
+          - name: debian-12
+            image: debian:12
+            install: |
+              apt-get update
+              apt-get install -y \
+                procps \
+                iproute2 \
+                ethtool \
+                sysstat \
+                numactl \
+                tar \
+                gzip
+
+          - name: oraclelinux-8
+            image: oraclelinux:8
+            install: |
+              dnf install -y \
+                procps-ng \
+                iproute \
+                ethtool \
+                sysstat \
+                numactl \
+                tar \
+                gzip || true
+
+          - name: oraclelinux-9
+            image: oraclelinux:9
+            install: |
+              dnf install -y \
+                procps-ng \
+                iproute \
+                ethtool \
+                sysstat \
+                numactl \
+                tar \
+                gzip || true
+
+          - name: suse-15-sp6
+            image: registry.suse.com/bci/bci-base:15.6
+            install: |
+              zypper --non-interactive refresh
+              zypper --non-interactive install \
+                procps \
+                iproute2 \
+                ethtool \
+                sysstat \
+                numactl \
+                tar \
+                gzip || true
+
+    container:
+      image: ${{ matrix.image }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          ${{ matrix.install }}
+
+      - name: Prepare script
+        run: |
+          sed -i 's/\r$//' "${{ env.SCRIPT_PATH }}"
+          chmod +x "${{ env.SCRIPT_PATH }}"
+          sh -n "${{ env.SCRIPT_PATH }}"
+
+      - name: Run basic
+        run: |
+          mkdir -p out/${{ matrix.name }}/basic
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m basic \
+            -o out/${{ matrix.name }}/basic
+
+      - name: Run detail
+        run: |
+          mkdir -p out/${{ matrix.name }}/detail
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m detail \
+            -o out/${{ matrix.name }}/detail
+
+      - name: Run full
+        run: |
+          mkdir -p out/${{ matrix.name }}/full
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m full \
+            -o out/${{ matrix.name }}/full
+
+      - name: Run interface-specific test
+        run: |
+          IFACE=$(ip -o link show 2>/dev/null | awk -F': ' '$2 != "lo" {sub(/@.*/, "", $2); print $2; exit}')
+          [ -n "$IFACE" ] || IFACE=lo
+
+          mkdir -p out/${{ matrix.name }}/iface
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m detail \
+            -I "$IFACE" \
+            -o out/${{ matrix.name }}/iface
+
+      - name: Run compressed mode
+        run: |
+          mkdir -p out/${{ matrix.name }}/compress
+          "${{ env.SCRIPT_PATH }}" \
+            -d 3 \
+            -i 1 \
+            -m full \
+            --compress \
+            -o out/${{ matrix.name }}/compress
+
+      - name: Package artifacts
+        if: always()
+        run: |
+          tar -czf softnet-${{ matrix.name }}.tar.gz out || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: softnet-${{ matrix.name }}
+          path: softnet-${{ matrix.name }}.tar.gz
+          if-no-files-found: warn
