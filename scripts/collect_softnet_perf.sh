@@ -551,18 +551,21 @@ capture_nstat() {
 sample_once() {
     sample_id=$1
     epoch=$2
-    elapsed="$3"
-    utc=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-    sid=$(printf '%06d' "$sample_id")
-    tickdir="$OUTDIR/snapshots/snapshot_${sample_id}_elapsed_${elapsed}s"
+    elapsed=$3
+    
+    snapshot_dir="$OUTDIR/snapshots/snapshot_${sample_id}_elapsed_${elapsed}s"
 
-    mkdir -p "$tickdir" || error_exit "failed to create sample directory: $tickdir"
+    mkdir -p "$snapshot_dir" || {
+        log "WARNING: failed to create snapshot directory: $snapshot_dir"
+        return 1
+    }
 
     {
         printf 'sample_id=%s\n' "$sample_id"
         printf 'epoch=%s\n' "$epoch"
-        printf 'utc=%s\n' "$utc"
-    } > "$tickdir/sample_meta.txt"
+        printf 'elapsed_seconds=%s\n' "$elapsed"
+        printf 'sample_utc=%s\n' "$(now_utc)"
+    } > "$snapshot_dir/sample_meta.txt"
 
     safe_read /proc/net/softnet_stat > "$tickdir/softnet_stat.raw"
     parse_softnet "$tickdir/softnet_stat.raw" "$tickdir/softnet_stat.csv" "$epoch" "$utc"
@@ -683,19 +686,26 @@ main() {
     log "INFO: duration=$DURATION interval=$INTERVAL mode=$MODE"
     log "INFO: interfaces=${IFACES:-auto_all_non_loopback}"
 
+    SAMPLE_ID=0
+
     while :; do
         now=$(now_epoch)
+    
         [ "$now" -ge "$END_EPOCH" ] && break
 
+        elapsed=$((now - START_EPOCH))
         SAMPLE_ID=$((SAMPLE_ID + 1))
-        sample_once "$sample_id" "$now" "$elapsed"
+
+        sample_once "$SAMPLE_ID" "$now" "$elapsed"
 
         now=$(now_epoch)
         [ "$now" -ge "$END_EPOCH" ] && break
 
+        next_target=$((START_EPOCH + SAMPLE_ID * INTERVAL))
+        sleep_for=$((next_target - now))
         remaining=$((END_EPOCH - now))
-        sleep_for=$INTERVAL
-        [ "$remaining" -lt "$sleep_for" ] && sleep_for=$remaining
+
+        [ "$sleep_for" -gt "$remaining" ] && sleep_for=$remaining
         [ "$sleep_for" -gt 0 ] && sleep "$sleep_for"
     done
 
