@@ -263,7 +263,7 @@ build_filter() {
 }
 
 preflight() {
-    mkdir -p "$OUTDIR" "$OUTDIR/pcap" "$OUTDIR/snapshots" "$OUTDIR/static" "$OUTDIR/logs" || error_exit "failed to create output directory: $OUTDIR"
+    mkdir -p "$OUTDIR" "$OUTDIR/pcap" "$OUTDIR/snapshots" "$OUTDIR/static" || error_exit "failed to create output directory: $OUTDIR"
     have_cmd tcpdump || error_exit "tcpdump is required but not found"
     have_cmd timeout || log "WARN: timeout command not found. Capture duration cannot be enforced cleanly."
     resolve_interface
