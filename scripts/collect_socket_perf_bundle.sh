@@ -382,7 +382,7 @@ if [[ -z "$OUTDIR" ]]; then
 fi
 
 safe_mkdir "$OUTDIR"
-safe_mkdir "$OUTDIR/samples"
+safe_mkdir "$OUTDIR/snapshots"
 
 START_EPOCH="$(epoch_now)"
 END_EPOCH=$((START_EPOCH + DURATION))
