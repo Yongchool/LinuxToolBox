@@ -127,7 +127,7 @@ sanitize_name() {
 }
 
 collect_metadata() {
-  local meta="$OUTDIR/00_metadata.txt"
+  local meta="$OUTDIR/metadata.txt"
   {
     echo "script=$SCRIPT_NAME"
     echo "collected_at_utc=$(timestamp_utc)"
@@ -179,7 +179,7 @@ collect_metadata() {
 }
 
 collect_static_network_context() {
-  local out="$OUTDIR/01_static_context"
+  local out="$OUTDIR/static_context"
   safe_mkdir "$out"
 
   run_in_ns_sh 'ip addr show 2>/dev/null || true' > "$out/ip_addr.txt" 2>&1 || true
@@ -320,7 +320,8 @@ collect_optional_ebpf_note() {
 sample_once() {
   local sample_id="$1"
   local tick_epoch="$2"
-  local tickdir="$OUTDIR/samples/sample_${sample_id}"
+  local elapsed="$3"
+  local tickdir="$OUTDIR/snapshots/snapshot_${sample_id}_elapsed_${elapsed}s"
 
   safe_mkdir "$tickdir"
 
@@ -398,7 +399,8 @@ while :; do
   (( now >= END_EPOCH )) && break
 
   sample_id=$((sample_id + 1))
-  sample_once "$sample_id" "$now"
+  elapsed=$((now - START_EPOCH))
+  sample_once "$sample_id" "$now" "$elapsed"
 
   sleep "$INTERVAL"
 done
@@ -408,7 +410,7 @@ done
   echo "completed_at_utc=$(timestamp_utc)"
   echo "completed_at_epoch=$(epoch_now)"
   echo "samples_collected=$sample_id"
-} > "$OUTDIR/99_collection_end.txt"
+} > "$OUTDIR/collection_end.txt"
 
 log "INFO: collection completed: $OUTDIR"
 exit 0
