@@ -169,7 +169,7 @@ validate_args() {
 }
 
 preflight_dirs() {
-    mkdir -p "$OUTDIR" "$OUTDIR/raw" "$OUTDIR/summary" "$OUTDIR/snapshots" "$OUTDIR/static" "$OUTDIR/logs" "$OUTDIR/sys" || \
+    mkdir -p "$OUTDIR" "$OUTDIR/raw" "$OUTDIR/summary" "$OUTDIR/snapshots" "$OUTDIR/static" || \
         error_exit "failed to create output directory: $OUTDIR"
 }
 
