@@ -219,7 +219,7 @@ validate_args() {
 
 prepare_dirs() {
     mkdir -p \
-        "$OUTDIR/samples" \
+        "$OUTDIR/snapshots" \
         "$OUTDIR/context/start" \
         "$OUTDIR/context/end" \
         "$OUTDIR/summary" || error_exit "failed to create output directory: $OUTDIR"
@@ -286,7 +286,7 @@ save_metadata() {
                 printf '%s=NO\n' "$cmd"
             fi
         done
-    } > "$OUTDIR/00_metadata.txt"
+    } > "$OUTDIR/metadata.txt"
 }
 
 capture_irq_affinity() {
@@ -551,9 +551,10 @@ capture_nstat() {
 sample_once() {
     sample_id=$1
     epoch=$2
+    elapsed="$3"
     utc=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
     sid=$(printf '%06d' "$sample_id")
-    tickdir="$OUTDIR/samples/sample_$sid"
+    tickdir="$OUTDIR/snapshots/snapshot_${sample_id}_elapsed_${elapsed}s"
 
     mkdir -p "$tickdir" || error_exit "failed to create sample directory: $tickdir"
 
@@ -656,7 +657,7 @@ cleanup_signal() {
             printf 'signal=%s\n' "$sig"
             printf 'ended_at_utc=%s\n' "$(now_utc)"
             printf 'samples_collected=%s\n' "$SAMPLE_ID"
-        } > "$OUTDIR/99_completed.txt"
+        } > "$OUTDIR/completed.txt"
     fi
     exit 130
 }
@@ -687,7 +688,7 @@ main() {
         [ "$now" -ge "$END_EPOCH" ] && break
 
         SAMPLE_ID=$((SAMPLE_ID + 1))
-        sample_once "$SAMPLE_ID" "$now"
+        sample_once "$sample_id" "$now" "$elapsed"
 
         now=$(now_epoch)
         [ "$now" -ge "$END_EPOCH" ] && break
@@ -707,7 +708,7 @@ main() {
         printf 'ended_epoch=%s\n' "$(now_epoch)"
         printf 'ended_at_utc=%s\n' "$(now_utc)"
         printf 'samples_collected=%s\n' "$SAMPLE_ID"
-    } > "$OUTDIR/99_completed.txt"
+    } > "$OUTDIR/completed.txt"
 
     compress_output
     log "INFO: collection completed: $OUTDIR"
