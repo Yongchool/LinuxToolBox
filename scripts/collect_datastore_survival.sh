@@ -289,10 +289,12 @@ collect_static_pstore_context() {
         dmesg 2>/dev/null | grep -Ei 'pstore|ramoops|efi.*pstore' | tail -n 100 || true
     } > "$pdir/pstore_context.txt"
 
-    if [ -d /sys/fs/pstore ]; then
+    if [ -d /sys/fs/pstore ] && \
+       find /sys/fs/pstore -mindepth 1 -type f -print -quit 2>/dev/null | grep -q .
+    then
         mkdir -p "$pdir/files"
         for f in /sys/fs/pstore/*; do
-            [ -e "$f" ] || continue
+            [ -f "$f" ] || continue
             base=$(basename "$f")
             safe_cp_file "$f" "$pdir/files/$base"
         done
