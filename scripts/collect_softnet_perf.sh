@@ -567,26 +567,26 @@ sample_once() {
         printf 'sample_utc=%s\n' "$(now_utc)"
     } > "$snapshot_dir/sample_meta.txt"
 
-    safe_read /proc/net/softnet_stat > "$tickdir/softnet_stat.raw"
-    parse_softnet "$tickdir/softnet_stat.raw" "$tickdir/softnet_stat.csv" "$epoch" "$utc"
-    safe_read /proc/softirqs > "$tickdir/proc_softirqs.txt"
-    safe_read /proc/interrupts > "$tickdir/proc_interrupts.txt"
-    capture_interface_stats "$tickdir"
+    safe_read /proc/net/softnet_stat > "$snapshot_dir/softnet_stat.raw"
+    parse_softnet "$snapshot_dir/softnet_stat.raw" "$snapshot_dir/softnet_stat.csv" "$epoch" "$utc"
+    safe_read /proc/softirqs > "$snapshot_dir/proc_softirqs.txt"
+    safe_read /proc/interrupts > "$snapshot_dir/proc_interrupts.txt"
+    capture_interface_stats "$snapshot_dir"
 
     case $MODE in
         detail|full)
-            capture_ethtool_stats "$tickdir"
-            capture_qdisc_stats "$tickdir"
+            capture_ethtool_stats "$snapshot_dir"
+            capture_qdisc_stats "$snapshot_dir"
             ;;
     esac
 
     if [ "$MODE" = full ]; then
-        capture_queue_sysfs "$tickdir"
-        capture_nstat "$tickdir"
+        capture_queue_sysfs "$snapshot_dir"
+        capture_nstat "$snapshot_dir"
     fi
 
-    append_softnet_delta "$tickdir/softnet_stat.csv" "$epoch"
-    PREV_PARSED=$tickdir/softnet_stat.csv
+    append_softnet_delta "$snapshot_dir/softnet_stat.csv" "$epoch"
+    PREV_PARSED=$snapshot_dir/softnet_stat.csv
     PREV_EPOCH=$epoch
 }
 
