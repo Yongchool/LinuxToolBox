@@ -105,12 +105,6 @@ jobs:
                 sed \
                 util-linux
 
-          - name: debian-11
-            image: debian:11
-            install: |
-              apt-get update
-              apt-get install -y bash grep sed coreutils util-linux
-
           - name: debian-12
             image: debian:12
             install: |
