@@ -152,19 +152,6 @@ jobs:
                 tar \
                 gzip || true
 
-          - name: debian-11
-            image: debian:11
-            install: |
-              apt-get update
-              apt-get install -y \
-                procps \
-                iproute2 \
-                ethtool \
-                sysstat \
-                numactl \
-                tar \
-                gzip
-
           - name: debian-12
             image: debian:12
             install: |
