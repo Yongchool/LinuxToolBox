@@ -126,7 +126,6 @@ jobs:
           - name: debian-11
             image: debian:11
             install: |
-              apt-get update
               apt-get install -y bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip sysstat numactl pciutils nfs-common cifs-utils samba-common-bin rpcbind tcpdump kmod
           - name: debian-12
             image: debian:12
