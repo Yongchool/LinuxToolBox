@@ -102,11 +102,6 @@ jobs:
             image: rockylinux:9
             install: |
               dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip kmod systemd
-          - name: debian-11
-            image: debian:11
-            install: |
-              apt-get update
-              apt-get install -y bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip
           - name: debian-12
             image: debian:12
             install: |
