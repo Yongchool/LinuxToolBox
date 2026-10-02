@@ -123,10 +123,6 @@ jobs:
             install: |
               dnf install -y bash findutils gawk grep sed procps-ng util-linux iproute ethtool psmisc lsof tar gzip pciutils nfs-utils cifs-utils samba-client rpcbind kmod
               dnf install -y sysstat numactl tcpdump || true
-          - name: debian-11
-            image: debian:11
-            install: |
-              apt-get install -y bash coreutils findutils gawk grep sed procps util-linux iproute2 ethtool psmisc lsof tar gzip sysstat numactl pciutils nfs-common cifs-utils samba-common-bin rpcbind tcpdump kmod
           - name: debian-12
             image: debian:12
             install: |
