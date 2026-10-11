@@ -54,6 +54,8 @@ NETCONSOLE_IFACE=""
 SCRIPT_NAME=$(basename "$0")
 START_EPOCH=""
 ORIG_PRINTK=""
+DMESG_FOLLOW_PID=""
+DMESG_FOLLOW_BACKEND="none"
 
 usage() {
     cat <<'EOF'
@@ -351,6 +353,83 @@ should_send_td() {
     esac
 }
 
+start_kernel_log_follow() {
+    local output_file="$OUTDIR/dmesg/dmesg_follow_new.txt"
+    local error_file="$OUTDIR/dmesg/dmesg_follow_error.txt"
+
+    : > "$output_file"
+    : > "$error_file"
+
+    # Preferred: dmesg --follow-new / -W
+    # Unlike dmesg -w, this records only messages generated after startup.
+    if dmesg --help 2>&1 | grep -q -- '--follow-new'; then
+        DMESG_FOLLOW_BACKEND="dmesg --follow-new"
+
+        dmesg --follow-new \
+            > "$output_file" \
+            2> "$error_file" &
+
+        DMESG_FOLLOW_PID=$!
+
+    elif dmesg --help 2>&1 | grep -q -- ' -W'; then
+        DMESG_FOLLOW_BACKEND="dmesg -W"
+
+        dmesg -W \
+            > "$output_file" \
+            2> "$error_file" &
+
+        DMESG_FOLLOW_PID=$!
+
+    elif have_cmd journalctl; then
+        # Fallback for older dmesg implementations.
+        # -n 0 prevents existing journal entries from being printed.
+        DMESG_FOLLOW_BACKEND="journalctl -k -f -n 0"
+
+        journalctl \
+            -k \
+            -f \
+            -n 0 \
+            --no-pager \
+            > "$output_file" \
+            2> "$error_file" &
+
+        DMESG_FOLLOW_PID=$!
+
+    else
+        DMESG_FOLLOW_BACKEND="unavailable"
+        DMESG_FOLLOW_PID=""
+
+        echo "Neither dmesg --follow-new/-W nor journalctl is available." \
+            > "$error_file"
+
+        log "WARN: incremental kernel log collection is unavailable"
+        return 0
+    fi
+
+    echo "$DMESG_FOLLOW_PID" > "$OUTDIR/dmesg/dmesg_follow.pid"
+    echo "$DMESG_FOLLOW_BACKEND" > "$OUTDIR/dmesg/dmesg_follow_backend.txt"
+
+    log "INFO: incremental kernel log collector started"
+    log "INFO: backend=$DMESG_FOLLOW_BACKEND pid=$DMESG_FOLLOW_PID"
+}
+
+stop_kernel_log_follow() {
+    if [ -z "${DMESG_FOLLOW_PID:-}" ]; then
+        return 0
+    fi
+
+    if kill -0 "$DMESG_FOLLOW_PID" 2>/dev/null; then
+        kill "$DMESG_FOLLOW_PID" 2>/dev/null || true
+        wait "$DMESG_FOLLOW_PID" 2>/dev/null || true
+    fi
+
+    DMESG_FOLLOW_PID=""
+}
+
+cleanup() {
+    stop_kernel_log_follow
+}
+
 sample_once() {
     local sample_id="$1"
     local elapsed="$2"
@@ -387,8 +466,6 @@ sample_once() {
     # Give printk/dmesg a small window to flush.
     sleep 2
 
-    dmesg -T > "$dir/dmesg_T_after_sysrq.txt" 2>&1 || true
-    dmesg > "$dir/dmesg_raw_after_sysrq.txt" 2>&1 || true
     ps -eo pid,ppid,stat,comm,wchan:32,etime,args --sort=pid > "$dir/ps.txt" 2>&1 || true
     vmstat 1 2 > "$dir/vmstat.txt" 2>&1 || true
     top -b -n 1 > "$dir/top.txt" 2>&1 || true
@@ -406,6 +483,11 @@ main() {
 
     save_metadata
     capture_baseline
+    
+    # Start before triggering SysRq so every newly generated SysRq printk message
+    # is captured by the incremental kernel log collector.
+    start_kernel_log_follow
+
     raise_console_loglevel
 
     log "INFO: output directory: $OUTDIR"
@@ -437,9 +519,10 @@ main() {
         elapsed=$(( $(now_epoch) - START_EPOCH ))
         sample_once "$sample_id" "$elapsed" 0 1 "$vcpu"
     fi
+    
+    # Stop continuous incremental kernel log collection.
+    stop_kernel_log_follow
 
-    dmesg -T > "$OUTDIR/dmesg/dmesg_end_T.txt" 2>&1 || true
-    dmesg > "$OUTDIR/dmesg/dmesg_end_raw.txt" 2>&1 || true
     cp /proc/sys/kernel/printk "$OUTDIR/proc/printk_end.txt" 2>/dev/null || true
     cp /proc/sys/kernel/sysrq "$OUTDIR/proc/sysrq_end.txt" 2>/dev/null || true
 
@@ -448,10 +531,12 @@ main() {
         echo "completed_at_epoch=$(now_epoch)"
         echo "samples_collected=$sample_id"
         echo "original_printk=$ORIG_PRINTK"
+        echo "kernel_log_follow_backend=$DMESG_FOLLOW_BACKEND"
     } > "$OUTDIR/99_collection_end.txt"
 
     restore_printk_loglevel
     log "INFO: completed: $OUTDIR"
 }
 
+trap cleanup EXIT HUP INT TERM
 main "$@"
