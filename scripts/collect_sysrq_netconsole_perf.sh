@@ -250,8 +250,11 @@ save_metadata() {
 }
 
 capture_baseline() {
-    dmesg -T > "$OUTDIR/dmesg/dmesg_start_T.txt" 2>&1 || true
-    dmesg > "$OUTDIR/dmesg/dmesg_start_raw.txt" 2>&1 || true
+    if dmesg --help 2>&1 | grep -q -- ' -T'; then
+        dmesg -T > "$OUTDIR/dmesg/dmesg_start.txt" 2>&1 || true
+    else
+        dmesg > "$OUTDIR/dmesg/dmesg_start.txt" 2>&1 || true
+    fi    
     cp /proc/sys/kernel/sysrq "$OUTDIR/proc/sysrq_start.txt" 2>/dev/null || true
     cp /proc/sys/kernel/printk "$OUTDIR/proc/printk_start.txt" 2>/dev/null || true
     ps -eo pid,ppid,stat,comm,wchan:32,etime,args --sort=pid > "$OUTDIR/proc/ps_start.txt" 2>&1 || true
@@ -365,18 +368,30 @@ start_kernel_log_follow() {
     if dmesg --help 2>&1 | grep -q -- '--follow-new'; then
         DMESG_FOLLOW_BACKEND="dmesg --follow-new"
 
-        dmesg --follow-new \
-            > "$output_file" \
-            2> "$error_file" &
+        if dmesg --help 2>&1 | grep -q -- ' -T'; then
+            dmesg --follow-new -T \
+                > "$output_file" \
+                2> "$error_file" &
+        else
+            dmesg --follow-new \
+                > "$output_file" \
+                2> "$error_file" &
+        fi
 
         DMESG_FOLLOW_PID=$!
 
     elif dmesg --help 2>&1 | grep -q -- ' -W'; then
         DMESG_FOLLOW_BACKEND="dmesg -W"
 
-        dmesg -W \
-            > "$output_file" \
-            2> "$error_file" &
+        if dmesg --help 2>&1 | grep -q -- ' -T'; then
+            dmesg -W -T \
+                > "$output_file" \
+                2> "$error_file" &
+        else
+            dmesg -W \
+                > "$output_file" \
+                2> "$error_file" &
+        fi
 
         DMESG_FOLLOW_PID=$!
 
